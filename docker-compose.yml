@@ -1,0 +1,111 @@
+version: "3.8"
+
+# ============================================================
+# Subscription Intelligence Pipeline — Docker Compose
+# ============================================================
+# Services:
+#   spark-master  — Spark master node
+#   spark-worker  — Spark worker node
+#   postgres      — PostgreSQL database
+#   jupyter       — Jupyter notebook for exploration
+#   kafka         — Kafka broker (optional streaming layer)
+#   zookeeper     — Required by Kafka
+#
+# Run: docker-compose up -d
+# Stop: docker-compose down
+# ============================================================
+
+services:
+
+  # ── Apache Spark ──────────────────────────────────────────
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"   # Spark Web UI
+      - "7077:7077"   # Spark Master port
+    volumes:
+      - ./data:/opt/bitnami/spark/data
+      - ./src:/opt/bitnami/spark/src
+
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    depends_on:
+      - spark-master
+    volumes:
+      - ./data:/opt/bitnami/spark/data
+      - ./src:/opt/bitnami/spark/src
+
+  # ── PostgreSQL ────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB:       billing_db
+      POSTGRES_USER:     billing_user
+      POSTGRES_PASSWORD: billing_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billing_user -d billing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Jupyter Notebook ──────────────────────────────────────
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - SPARK_OPTS=--master=spark://spark-master:7077
+    volumes:
+      - ./notebooks:/home/jovyan/work/notebooks
+      - ./data:/home/jovyan/work/data
+      - ./src:/home/jovyan/work/src
+    depends_on:
+      - spark-master
+
+  # ── Kafka + Zookeeper (streaming layer) ───────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME:   2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID:                        1
+      KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
+
+volumes:
+  postgres_data:
