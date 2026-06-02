@@ -971,6 +971,7 @@
       <div class="s-item" onclick="nav('tenants', this)"><i class="ti ti-building" aria-hidden="true"></i> Tenants</div>
       <div class="s-item" onclick="nav('cohorts', this)"><i class="ti ti-table" aria-hidden="true"></i> Cohort Retention</div>
       <div class="s-item" onclick="nav('churn', this)"><i class="ti ti-trending-down" aria-hidden="true"></i> Churn Analysis</div>
+      <div class="s-item" onclick="nav('simulator', this)"><i class="ti ti-adjustments" aria-hidden="true"></i> Simulator</div>
       <div class="s-section">Engineering</div>
       <div class="s-item" onclick="nav('pipeline', this)"><i class="ti ti-database" aria-hidden="true"></i> Pipeline Jobs</div>
       <div class="s-item" onclick="nav('benchmark', this)"><i class="ti ti-bolt" aria-hidden="true"></i> Benchmark</div>
@@ -1137,6 +1138,76 @@
         </div>
       </div>
 
+      <!-- SIMULATOR SCREEN -->
+      <div class="panel-screen" id="screen-simulator">
+        <div class="row2">
+          <div class="card">
+            <div class="card-title">Revenue What-If Inputs</div>
+            <div class="runner-controls">
+              <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px;">
+                <label style="font-size:11px;color:var(--color-text-secondary);font-weight:600;">
+                  Starting tenants
+                  <input type="number" id="sim-tenants" class="search-input" value="500" min="1" max="100000" style="width:100%;margin-top:6px">
+                </label>
+                <label style="font-size:11px;color:var(--color-text-secondary);font-weight:600;">
+                  Monthly ARPU (INR)
+                  <input type="number" id="sim-arpu" class="search-input" value="50000" min="0" max="10000000" style="width:100%;margin-top:6px">
+                </label>
+                <label style="font-size:11px;color:var(--color-text-secondary);font-weight:600;">
+                  Monthly growth %
+                  <input type="number" id="sim-growth" class="search-input" value="4" min="-100" max="200" step="0.1" style="width:100%;margin-top:6px">
+                </label>
+                <label style="font-size:11px;color:var(--color-text-secondary);font-weight:600;">
+                  Monthly churn %
+                  <input type="number" id="sim-churn" class="search-input" value="8" min="0" max="100" step="0.1" style="width:100%;margin-top:6px">
+                </label>
+                <label style="font-size:11px;color:var(--color-text-secondary);font-weight:600;">
+                  Projection months
+                  <input type="number" id="sim-months" class="search-input" value="12" min="1" max="36" style="width:100%;margin-top:6px">
+                </label>
+              </div>
+              <button class="btn" onclick="runRevenueSimulator()" style="justify-content:center;padding:10px 0;">
+                <i class="ti ti-player-play"></i> Run Simulation
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Simulation Summary</div>
+            <div class="kpi-grid" id="sim-summary" style="grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom:0">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">Projected MRR by Month</div>
+          <div class="chart-wrap" id="sim-chart" style="height:130px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">Projection Table</div>
+          <table class="bench-t">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Start Tenants</th>
+                <th>Added</th>
+                <th>Churned</th>
+                <th>End Tenants</th>
+                <th>MRR</th>
+                <th>ARR</th>
+              </tr>
+            </thead>
+            <tbody id="sim-table-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- PIPELINE SCREEN -->
       <div class="panel-screen" id="screen-pipeline">
         <div class="pipeline-list" id="pipeline-jobs-list">
@@ -1259,6 +1330,7 @@
       tenants: 'SaaS Accounts & Tenants Directory',
       cohorts: 'Monthly Retention Cohort Heatmap',
       churn: 'Customer Plan Churn & Risk Management',
+      simulator: 'Revenue What-If Simulator',
       pipeline: 'Data Pipeline Jobs',
       benchmark: 'Pandas vs PySpark Benchmark'
     };
@@ -1292,6 +1364,7 @@
     else if (tab === 'tenants') loadTenantsData();
     else if (tab === 'cohorts') loadCohortsData();
     else if (tab === 'churn') loadChurnData();
+    else if (tab === 'simulator') runRevenueSimulator();
     else if (tab === 'pipeline') loadPipelineData();
     else if (tab === 'benchmark') loadBenchmarkData();
   }
@@ -1540,6 +1613,68 @@
     }
   }
 
+  // Revenue what-if simulator
+  async function runRevenueSimulator() {
+    showLoading(true);
+    try {
+      const payload = {
+        starting_tenants: parseInt(document.getElementById('sim-tenants').value || '500', 10),
+        monthly_arpu: parseFloat(document.getElementById('sim-arpu').value || '50000'),
+        monthly_growth_pct: parseFloat(document.getElementById('sim-growth').value || '4'),
+        monthly_churn_pct: parseFloat(document.getElementById('sim-churn').value || '8'),
+        months: parseInt(document.getElementById('sim-months').value || '12', 10)
+      };
+
+      const response = await fetch('/api/simulator/revenue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error("Simulator input is outside the allowed range.");
+
+      const data = await response.json();
+      const summary = data.summary;
+      const summaryRows = [
+        ['Starting MRR', summary.starting_mrr, 'Initial input'],
+        ['Ending MRR', summary.ending_mrr, `${summary.mrr_change_pct}% change`],
+        ['Ending ARR', summary.ending_arr, 'Projected annualized'],
+        ['Ending Tenants', summary.ending_tenants, 'After growth and churn']
+      ];
+
+      document.getElementById('sim-summary').innerHTML = summaryRows.map(row => `
+        <div class="kpi">
+          <div class="kpi-label">${row[0]}</div>
+          <div class="kpi-val">${row[1]}</div>
+          <div class="kpi-trend neutral">${row[2]}</div>
+        </div>
+      `).join('');
+
+      const maxMrr = Math.max(...data.projection.map(row => row.mrr), 1);
+      document.getElementById('sim-chart').innerHTML = data.projection.map(row => `
+        <div class="bar-col">
+          <div class="bar-b" style="height:${Math.max(12, row.mrr / maxMrr * 115)}px; background:#185FA5" data-tooltip="${row.mrr_formatted}"></div>
+          <div class="bar-lbl">M${row.month}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('sim-table-body').innerHTML = data.projection.map(row => `
+        <tr>
+          <td>M${row.month}</td>
+          <td>${row.starting_tenants}</td>
+          <td>${row.added_tenants}</td>
+          <td>${row.churned_tenants}</td>
+          <td>${row.ending_tenants}</td>
+          <td>${row.mrr_formatted}</td>
+          <td>${row.arr_formatted}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      renderEmptyState('simulator', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
   // Fetch and render Pipeline Job screen data
   async function loadPipelineData() {
     showLoading(true);
@@ -1710,6 +1845,10 @@
       document.getElementById('churn-kpis').innerHTML = '';
       document.getElementById('plan-churn-bars').innerHTML = '';
       document.getElementById('churn-risk-list').innerHTML = `<div class="empty-note">${errorMsg}</div>`;
+    } else if (tab === 'simulator') {
+      document.getElementById('sim-summary').innerHTML = '';
+      document.getElementById('sim-chart').innerHTML = `<div class="empty-note" style="width:100%">${errorMsg}</div>`;
+      document.getElementById('sim-table-body').innerHTML = '';
     }
   }
 

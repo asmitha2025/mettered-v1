@@ -83,7 +83,17 @@ This benchmark compares local Pandas timings with PySpark availability. The hone
 
 This is an important engineering decision. For small local data, Pandas can be faster and simpler. Spark becomes valuable when the data is too large for one machine, or when distributed processing, fault tolerance, and partition management matter.
 
-## 3:40-4:35 - Source Code Walkthrough
+## 3:40-4:10 - What-If Simulator
+
+**Show:** Dashboard `Simulator` tab.
+
+**Say:**
+
+This is the interactive part of the project. It is not only a static dashboard. I can enter starting tenants, ARPU, growth rate, churn rate, and projection months. The frontend sends these inputs to a FastAPI endpoint, and the backend returns projected tenants, MRR, and ARR for each month.
+
+This lets a product or revenue team ask questions like: what happens if churn drops by two percent, or if acquisition improves next month?
+
+## 4:10-4:55 - Source Code Walkthrough
 
 **Show:** Editor with these files in order:
 
@@ -91,7 +101,8 @@ This is an important engineering decision. For small local data, Pandas can be f
 2. `src/ingestion/etl_ingest.py`
 3. `src/transforms/mrr_transform.py`
 4. `src/transforms/churn_cohort.py`
-5. `src/utils/spark_session.py`
+5. `src/web/app.py`
+6. `src/utils/spark_session.py`
 
 **Say:**
 
@@ -103,9 +114,11 @@ The MRR transform filters successful invoice-paid events, groups them by tenant 
 
 The churn and cohort transform computes churn by plan and builds the retention matrix. The retention logic is based on each tenant's first cancellation event.
 
+The web API includes the simulator endpoint, so the dashboard can accept user inputs and return a calculated projection instead of only displaying saved outputs.
+
 The Spark session helper chooses the right local execution mode. It can use Spark when the environment is correctly configured, but it falls back safely for local demos.
 
-## 4:35-5:10 - SQL, Tests, And CI
+## 4:55-5:25 - SQL, Tests, And CI
 
 **Show:** `sql/schema.sql`, then terminal test output, then `.github/workflows/ci.yml`.
 
@@ -113,11 +126,11 @@ The Spark session helper chooses the right local execution mode. It can use Spar
 
 The SQL schema shows how this analytics design could support a multi-tenant product. It includes tenant-scoped tables, indexes for hot query paths, a materialized view for revenue dashboards, and row-level security policies.
 
-I also added pytest coverage for data generation, transform logic, and Spark/Pandas engine selection. The current test suite passes with 14 tests, and flake8 reports zero issues for the project.
+I also added pytest coverage for data generation, transform logic, Spark/Pandas engine selection, churn dashboard consistency, and simulator calculations. The current test suite passes with 17 tests, and flake8 reports zero issues for the project.
 
 The GitHub Actions workflow runs lint checks, unit tests, SQL schema validation against PostgreSQL, and a small data generation smoke test.
 
-## 5:10-5:45 - Honest Production Gaps
+## 5:25-5:50 - Honest Production Gaps
 
 **Show:** `docs/PROJECT_SHOWCASE_REPORT.md`, section `Honest Production Gaps`.
 
@@ -127,7 +140,7 @@ For production, I would add a scheduler like Airflow or Dagster, a lakehouse tab
 
 I documented these gaps because I want the project to be honest. This is a strong portfolio project, and the next step would be making it cloud-native and production-operated.
 
-## 5:45-6:00 - Closing
+## 5:50-6:05 - Closing
 
 **Show:** README top or dashboard overview.
 

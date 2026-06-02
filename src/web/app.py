@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 import pandas as pd
 import numpy as np
 
@@ -42,6 +43,14 @@ pipeline_status = {
 }
 
 pipeline_lock = threading.Lock()
+
+
+class RevenueSimulationRequest(BaseModel):
+    starting_tenants: int = Field(500, ge=1, le=100_000)
+    monthly_arpu: float = Field(50_000, ge=0, le=10_000_000)
+    monthly_growth_pct: float = Field(4.0, ge=-100, le=200)
+    monthly_churn_pct: float = Field(8.0, ge=0, le=100)
+    months: int = Field(12, ge=1, le=36)
 
 def load_parquet(path: str) -> Optional[pd.DataFrame]:
     full_path = os.path.join(BASE_DIR, path)
@@ -626,6 +635,53 @@ def get_churn():
         "churn_risk": churn_risk,
         "selected_period": selected_period
     }
+
+
+@app.post("/api/simulator/revenue")
+def simulate_revenue(request: RevenueSimulationRequest):
+    tenants = float(request.starting_tenants)
+    arpu = float(request.monthly_arpu)
+    growth_rate = request.monthly_growth_pct / 100
+    churn_rate = request.monthly_churn_pct / 100
+
+    rows = []
+    starting_mrr = tenants * arpu
+
+    for month in range(1, request.months + 1):
+        starting_tenants = tenants
+        added_tenants = max(starting_tenants * growth_rate, -starting_tenants)
+        churned_tenants = starting_tenants * churn_rate
+        tenants = max(starting_tenants + added_tenants - churned_tenants, 0)
+        mrr = tenants * arpu
+
+        rows.append({
+            "month": month,
+            "starting_tenants": round(starting_tenants, 1),
+            "added_tenants": round(added_tenants, 1),
+            "churned_tenants": round(churned_tenants, 1),
+            "ending_tenants": round(tenants, 1),
+            "mrr": round(mrr, 2),
+            "mrr_formatted": format_inr(mrr),
+            "arr_formatted": format_inr(mrr * 12)
+        })
+
+    ending_mrr = rows[-1]["mrr"] if rows else starting_mrr
+    mrr_delta = ending_mrr - starting_mrr
+    request_payload = request.model_dump() if hasattr(request, "model_dump") else request.dict()
+
+    return {
+        "inputs": request_payload,
+        "summary": {
+            "starting_mrr": format_inr(starting_mrr),
+            "ending_mrr": format_inr(ending_mrr),
+            "ending_arr": format_inr(ending_mrr * 12),
+            "mrr_change": format_inr(mrr_delta),
+            "mrr_change_pct": round((mrr_delta / starting_mrr * 100), 1) if starting_mrr else 0.0,
+            "ending_tenants": round(rows[-1]["ending_tenants"], 1) if rows else round(tenants, 1)
+        },
+        "projection": rows
+    }
+
 
 @app.get("/api/pipeline")
 def get_pipeline_details():

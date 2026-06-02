@@ -6,9 +6,9 @@ Use this file as your interview preparation, LinkedIn post source, and video scr
 
 **Project:** Subscription Intelligence Pipeline  
 **Domain:** SaaS billing analytics, subscription revenue, churn, retention  
-**Core stack:** Python, PySpark, Pandas fallback, Parquet, PostgreSQL schema, Kafka producer, FastAPI dashboard, pytest, GitHub Actions
+**Core stack:** Python, PySpark, Pandas fallback, Parquet, PostgreSQL schema, Kafka producer, FastAPI dashboard, what-if simulator, pytest, GitHub Actions
 
-This project simulates a subscription billing analytics platform. It generates SaaS billing events, validates raw CSV data, stores clean data as partitioned Parquet, computes MRR/ARR/LTV/churn/cohort retention, exposes a dashboard API, includes a Kafka producer for streaming simulation, and documents production-oriented database design with row-level security.
+This project simulates a subscription billing analytics platform. It generates SaaS billing events, validates raw CSV data, stores clean data as partitioned Parquet, computes MRR/ARR/LTV/churn/cohort retention, exposes a dashboard API, accepts interactive revenue simulation inputs, includes a Kafka producer for streaming simulation, and documents production-oriented database design with row-level security.
 
 The strongest interview angle is:
 
@@ -25,7 +25,8 @@ The strongest interview angle is:
 - Fixed a flake8 CI issue in `src/utils/spark_session.py` by importing `SparkSession` only for type checking.
 - Seeded Faker and Python random together so demo company names and metrics are reproducible across runs.
 - Cleaned the PostgreSQL schema comments and extended row-level security to the `tenants` table.
-- Verified the test suite: `15 passed`.
+- Added a backend-backed revenue what-if simulator so the dashboard accepts real user inputs.
+- Verified the test suite: `17 passed`.
 - Verified full-project lint: `flake8 src tests` returned `0`.
 - Verified full pipeline run with `--records 200000`.
 - Verified generator full-scale output with exactly 200,000 events.
@@ -45,7 +46,7 @@ Commands verified:
 
 Results:
 
-- Unit tests: `15 passed`.
+- Unit tests: `17 passed`.
 - Full-project lint: `0` issues.
 - Full pipeline run: completed successfully with `200,000` records in Pandas fallback mode.
 - Full data generation: produced exactly `200,000` billing events and `500` tenants.
@@ -63,7 +64,7 @@ The pipeline has five layers:
 2. **Ingestion and validation:** reads raw CSV, enforces required fields, rejects invalid records, enriches events with year/month partitions, and writes Parquet.
 3. **Revenue analytics:** computes MRR, ARR, MRR growth, rolling 3-month MRR, cumulative MRR, ARPU, and estimated LTV.
 4. **Retention analytics:** computes churn by plan and cohort retention across monthly cohorts.
-5. **Serving and production design:** FastAPI dashboard API, PostgreSQL schema with indexes and row-level security, Kafka producer for streaming simulation, and CI tests.
+5. **Serving and production design:** FastAPI dashboard API, revenue what-if simulator, PostgreSQL schema with indexes and row-level security, Kafka producer for streaming simulation, and CI tests.
 
 The design mirrors what a billing platform needs: correctness, tenant isolation, efficient query storage, and metrics that business teams actually use.
 

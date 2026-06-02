@@ -40,6 +40,7 @@ Raw CSV events
 - Includes a PostgreSQL schema with indexes, materialized view design, and row-level security.
 - Includes a Kafka producer for real-time billing event simulation.
 - Serves analytics through a FastAPI dashboard API.
+- Accepts interactive what-if inputs for tenant count, ARPU, growth, churn, and projection window.
 - Includes pytest coverage and GitHub Actions CI.
 - Benchmarks Pandas vs PySpark tradeoffs.
 
@@ -110,6 +111,7 @@ subscription-intelligence-pipeline/
 |-- sql/schema.sql                # PostgreSQL schema, indexes, RLS
 |-- tests/
 |   |-- test_generation.py        # synthetic data behavior
+|   |-- test_simulator.py         # what-if API calculations
 |   |-- test_spark_session.py     # Spark/Pandas engine selection
 |   `-- test_transforms.py        # metric and validation logic
 |-- docs/
@@ -198,7 +200,7 @@ python src/ingestion/kafka_producer.py --dry-run --rate 2 --duration 5
 These checks were run successfully in the local project environment:
 
 ```text
-pytest: 15 passed
+pytest: 17 passed
 flake8 full project check: 0 issues
 full pipeline run: passed with 200,000 records
 full generator run: produced exactly 200,000 billing events
