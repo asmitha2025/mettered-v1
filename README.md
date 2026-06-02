@@ -151,6 +151,17 @@ python run_dashboard.py
 The launcher starts a FastAPI server on the first available local port from
 `8000` onward.
 
+### Hugging Face Space / Docker
+
+The repository includes a Dockerfile for Hugging Face Spaces. The container
+build generates a 50K-record demo dataset and serves the dashboard on port
+`7860`.
+
+```bash
+docker build -t subscription-intelligence-pipeline .
+docker run -p 7860:7860 subscription-intelligence-pipeline
+```
+
 ### Tests
 
 ```bash

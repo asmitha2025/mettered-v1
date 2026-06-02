@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+.local
+.pytest_cache
+__pycache__
+*.pyc
+data
+masterman
+htmlcov
+.coverage
+README_HF_DRAFT.md
