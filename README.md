@@ -198,7 +198,7 @@ python src/ingestion/kafka_producer.py --dry-run --rate 2 --duration 5
 These checks were run successfully in the local project environment:
 
 ```text
-pytest: 14 passed
+pytest: 15 passed
 flake8 full project check: 0 issues
 full pipeline run: passed with 200,000 records
 full generator run: produced exactly 200,000 billing events

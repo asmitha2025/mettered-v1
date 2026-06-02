@@ -506,31 +506,53 @@ def get_churn():
     if churn_df is None or len(churn_df) == 0:
         return {"kpis": [], "plan_churn": [], "churn_risk": []}
 
-    # Get recent month churn rates
-    latest_period = churn_df["period"].max()
-    latest_churn = churn_df[churn_df["period"] == latest_period]
+    churn_df = churn_df.copy()
+    churn_df["churned_tenants"] = churn_df["churned_tenants"].fillna(0)
+    churn_df["active_tenants"] = churn_df["active_tenants"].fillna(0)
+    churn_df["churn_rate_pct"] = churn_df["churn_rate_pct"].fillna(0)
+
+    period_summary = (
+        churn_df
+        .groupby("period", as_index=False)
+        .agg(
+            active_tenants=("active_tenants", "sum"),
+            churned_tenants=("churned_tenants", "sum")
+        )
+        .sort_values("period")
+    )
+    active_churn_periods = period_summary[period_summary["churned_tenants"] > 0]
+    selected_period = (
+        active_churn_periods.iloc[-1]["period"]
+        if len(active_churn_periods) > 0
+        else period_summary.iloc[-1]["period"]
+    )
+    latest_churn = churn_df[churn_df["period"] == selected_period]
 
     total_active = latest_churn["active_tenants"].sum()
     total_churned = latest_churn["churned_tenants"].sum()
     overall_churn_rate = (total_churned / total_active * 100) if total_active > 0 else 0.0
-
-    # Plan breakdown
-    starter_rows = latest_churn[latest_churn["plan"] == "starter"]
-    starter_churn = starter_rows.iloc[0]["churn_rate_pct"] if len(starter_rows) > 0 else 0.0
-
-    ent_rows = latest_churn[latest_churn["plan"] == "enterprise"]
-    ent_churn = ent_rows.iloc[0]["churn_rate_pct"] if len(ent_rows) > 0 else 0.0
 
     # Total unique churned tenants across all history
     total_historical_churned = 0
     if events_df is not None:
         total_historical_churned = events_df[events_df["event_type"] == "subscription_cancelled"]["tenant_id"].nunique()
 
+    if len(latest_churn) > 0:
+        highest_plan = latest_churn.sort_values("churn_rate_pct", ascending=False).iloc[0]
+        lowest_plan = latest_churn.sort_values("churn_rate_pct", ascending=True).iloc[0]
+        highest_plan_name = str(highest_plan["plan"]).capitalize()
+        lowest_plan_name = str(lowest_plan["plan"]).capitalize()
+        highest_plan_churn = float(highest_plan["churn_rate_pct"])
+        lowest_plan_churn = float(lowest_plan["churn_rate_pct"])
+    else:
+        highest_plan_name = lowest_plan_name = "No plan data"
+        highest_plan_churn = lowest_plan_churn = 0.0
+
     kpis = [
-        {"label": "Overall Churn", "val": f"{overall_churn_rate:.1f}%", "sub": "Average this month"},
-        {"label": "Starter Churn", "val": f"{starter_churn:.1f}%", "sub": "Highest plan churn"},
-        {"label": "Enterprise Churn", "val": f"{ent_churn:.1f}%", "sub": "Lowest plan churn"},
-        {"label": "Churned Tenants", "val": str(total_historical_churned), "sub": "All-time cancelled"}
+        {"label": "Observed Churn", "val": f"{overall_churn_rate:.1f}%", "sub": f"{selected_period} latest churn activity"},
+        {"label": "Highest Plan Churn", "val": f"{highest_plan_churn:.1f}%", "sub": highest_plan_name},
+        {"label": "Lowest Plan Churn", "val": f"{lowest_plan_churn:.1f}%", "sub": lowest_plan_name},
+        {"label": "Churned This Period", "val": str(int(total_churned)), "sub": f"{total_historical_churned} all-time cancelled"}
     ]
 
     plan_churn = []
@@ -551,37 +573,42 @@ def get_churn():
             "color": plan_colors.get(plan_name, "#85B7EB")
         })
 
-    # Dynamic Churn Risk Tenants
+    # Dynamic billing-risk tenants from recent failed invoices.
     churn_risk = []
     if events_df is not None and tenants_df is not None:
-        # Find tenants with recent invoice failures
-        failed_events = events_df[events_df["event_type"] == "invoice_failed"].sort_values("event_date", ascending=False)
-        # Select unique tenant ids with failed invoices
-        unique_failed = failed_events["tenant_id"].unique()[:4]
+        events_df = events_df.copy()
+        events_df["event_date"] = pd.to_datetime(events_df["event_date"], errors="coerce")
+        latest_event_date = events_df["event_date"].max()
+        cutoff_date = latest_event_date - pd.Timedelta(days=90) if pd.notna(latest_event_date) else None
 
-        reasons = [
-            "60d no payment",
-            "45d no payment",
-            "Downgraded plan",
-            "Invoice failed 2x"
-        ]
+        failed_events = events_df[events_df["event_type"] == "invoice_failed"]
+        if cutoff_date is not None:
+            failed_events = failed_events[failed_events["event_date"] >= cutoff_date]
 
-        for i, tid in enumerate(unique_failed):
-            # Look up tenant details
+        failure_counts = (
+            failed_events
+            .groupby("tenant_id")
+            .size()
+            .reset_index(name="failure_count")
+            .sort_values("failure_count", ascending=False)
+            .head(4)
+        )
+
+        for _, failed_row in failure_counts.iterrows():
+            tid = failed_row["tenant_id"]
             t_row = tenants_df[tenants_df["tenant_id"] == tid]
             if len(t_row) > 0:
-                reason = reasons[i % len(reasons)]
-                # Customize reason if they actually have failed events
-                t_failures = len(failed_events[failed_events["tenant_id"] == tid])
-                if t_failures > 1:
-                    reason = f"Invoice failed {t_failures}x"
-                elif t_failures == 1:
-                    reason = "Failed billing attempt"
+                failure_count = int(failed_row["failure_count"])
+                reason = (
+                    f"{failure_count} failed invoices in last 90d"
+                    if failure_count > 1
+                    else "1 failed invoice in last 90d"
+                )
 
                 churn_risk.append({
                     "company_name": t_row.iloc[0]["company_name"],
                     "reason": reason,
-                    "color": "var(--color-text-danger)" if "fail" in reason.lower() or "failed" in reason.lower() else "var(--color-text-warning)"
+                    "color": "var(--color-text-danger)" if failure_count >= 3 else "var(--color-text-warning)"
                 })
 
     if not churn_risk:
@@ -596,7 +623,8 @@ def get_churn():
     return {
         "kpis": kpis,
         "plan_churn": plan_churn,
-        "churn_risk": churn_risk
+        "churn_risk": churn_risk,
+        "selected_period": selected_period
     }
 
 @app.get("/api/pipeline")

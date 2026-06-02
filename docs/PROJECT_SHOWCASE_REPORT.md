@@ -25,7 +25,7 @@ The strongest interview angle is:
 - Fixed a flake8 CI issue in `src/utils/spark_session.py` by importing `SparkSession` only for type checking.
 - Seeded Faker and Python random together so demo company names and metrics are reproducible across runs.
 - Cleaned the PostgreSQL schema comments and extended row-level security to the `tenants` table.
-- Verified the test suite: `14 passed`.
+- Verified the test suite: `15 passed`.
 - Verified full-project lint: `flake8 src tests` returned `0`.
 - Verified full pipeline run with `--records 200000`.
 - Verified generator full-scale output with exactly 200,000 events.
@@ -45,7 +45,7 @@ Commands verified:
 
 Results:
 
-- Unit tests: `14 passed`.
+- Unit tests: `15 passed`.
 - Full-project lint: `0` issues.
 - Full pipeline run: completed successfully with `200,000` records in Pandas fallback mode.
 - Full data generation: produced exactly `200,000` billing events and `500` tenants.

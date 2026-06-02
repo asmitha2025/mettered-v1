@@ -1123,12 +1123,13 @@
         <div class="row3">
           <div class="card">
             <div class="card-title">Churn Rate by Plan</div>
+            <div id="churn-period-note" style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:10px">Loading churn period...</div>
             <div style="display:flex; flex-direction:column; gap:12px; margin-top:4px" id="plan-churn-bars">
               <!-- Populated dynamically -->
             </div>
           </div>
           <div class="card">
-            <div class="card-title">High Churn Risk Tenants</div>
+            <div class="card-title">Recent Billing-Risk Tenants</div>
             <div id="churn-risk-list">
               <!-- Populated dynamically -->
             </div>
@@ -1507,6 +1508,7 @@
         </div>
       `).join('');
       document.getElementById('churn-kpis').innerHTML = kpiHtml;
+      document.getElementById('churn-period-note').textContent = `Plan churn calculated for ${data.selected_period || 'latest available period'}`;
       
       // Churn plan bars
       const barsHtml = data.plan_churn.map(p => `
