@@ -1,11 +1,8 @@
 """
-mrr_transform.py  —  Job 2: MRR / ARR / LTV Calculations
+mrr_transform.py - Job 2: MRR / ARR / LTV Calculations
 ----------------------------------------------------------
 Computes Monthly Recurring Revenue, Annual Recurring Revenue,
 and Lifetime Value per tenant using Spark SQL window functions.
-
-This is the CORE business metric that Chargebee's platform
-surfaces to every one of its customers.
 
 Run:
     python src/transforms/mrr_transform.py
@@ -22,6 +19,7 @@ except ImportError:
     Window = None
 
 from utils.spark_session import get_spark
+from utils.filesystem import recreate_dir
 
 
 def compute_mrr(spark):
@@ -69,13 +67,15 @@ def compute_mrr(spark):
     mrr_enriched = (
         monthly_revenue
         .withColumn("prev_mrr",    F.lag("mrr", 1).over(tenant_window))
-        .withColumn("mrr_growth_pct",
+        .withColumn(
+            "mrr_growth_pct",
             F.round(
                 F.when(
                     (F.col("prev_mrr").isNotNull()) & (F.col("prev_mrr") != 0),
                     (F.col("mrr") - F.col("prev_mrr")) / F.col("prev_mrr") * 100
-                ).otherwise(F.lit(None))  # null for first month or zero-prev
-            , 2)
+                ).otherwise(F.lit(None)),
+                2,
+            )
         )
         .withColumn("cumulative_mrr",  F.sum("mrr").over(tenant_window_unbounded))
         .withColumn("rolling_3m_mrr",  F.avg("mrr").over(tenant_window_3m))
@@ -87,7 +87,7 @@ def compute_mrr(spark):
 
 def compute_ltv(mrr_df, tenants_df):
     """
-    LTV = Average MRR × Average customer lifetime in months.
+    LTV = Average MRR x average customer lifetime in months.
     Simple LTV model: LTV = ARPU / Churn Rate
     """
     avg_mrr_per_tenant = (
@@ -109,16 +109,15 @@ def compute_ltv(mrr_df, tenants_df):
 
 
 def run_pandas():
-    print("\n📊  Job 2: MRR / ARR / LTV Computation (Pandas Fallback Engine)\n")
+    print("\n[JOB 2] MRR / ARR / LTV Computation (Pandas Fallback Engine)\n")
     import pandas as pd
     import numpy as np
-    import shutil
 
     events_path = "data/processed/billing_events"
     tenants_path = "data/processed/tenants"
 
     if not os.path.exists(events_path) or not os.path.exists(tenants_path):
-        print("  ❌ Processed data missing from Job 1. Please run etl_ingest.py first.")
+        print("  [ERROR] Processed data missing from Job 1. Please run etl_ingest.py first.")
         return
 
     # Read Parquets
@@ -129,7 +128,7 @@ def run_pandas():
 
     # Monthly revenue per tenant
     invoice_paid = events[(events["event_type"] == "invoice_paid") & (events["status"] == "success")]
-    
+
     monthly_rev = (
         invoice_paid
         .groupby(["tenant_id", "event_year", "event_month"])
@@ -142,7 +141,7 @@ def run_pandas():
     )
 
     monthly_rev["period"] = (
-        monthly_rev["event_year"].astype(str) + "-" + 
+        monthly_rev["event_year"].astype(str) + "-" +
         monthly_rev["event_month"].astype(str).str.zfill(2)
     )
 
@@ -152,7 +151,7 @@ def run_pandas():
 
     # Lag
     monthly_rev["prev_mrr"] = monthly_rev.groupby("tenant_id")["mrr"].shift(1)
-    
+
     # Growth Pct
     monthly_rev["mrr_growth_pct"] = np.where(
         (monthly_rev["prev_mrr"].notna()) & (monthly_rev["prev_mrr"] != 0),
@@ -206,26 +205,24 @@ def run_pandas():
         .sort_values(["event_year", "event_month"])
     )
 
-    print("  📈 Global MRR by Month (last 6 periods):")
+    print("  Global MRR by Month (last 6 periods):")
     print(global_mrr.sort_values("period", ascending=False).head(6).to_string(index=False))
-    print("\n  💰 Top 10 Tenants by Estimated LTV:")
+    print("\n  Top 10 Tenants by Estimated LTV:")
     print(ltv.sort_values("estimated_ltv", ascending=False).head(10).to_string(index=False))
 
     # Write output parquets
     # Clean output directories if they exist
     for path in ["data/processed/mrr_by_tenant_month", "data/processed/global_mrr_monthly", "data/processed/tenant_ltv"]:
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.makedirs(path, exist_ok=True)
+        recreate_dir(path)
 
     monthly_rev.to_parquet(os.path.join("data/processed/mrr_by_tenant_month", "part.parquet"), index=False)
     global_mrr.to_parquet(os.path.join("data/processed/global_mrr_monthly", "part.parquet"), index=False)
     ltv.to_parquet(os.path.join("data/processed/tenant_ltv", "part.parquet"), index=False)
 
-    print("\n  ✓ MRR data written   → data/processed/mrr_by_tenant_month/")
-    print("  ✓ Global MRR written → data/processed/global_mrr_monthly/")
-    print("  ✓ LTV data written   → data/processed/tenant_ltv/")
-    print("\n✅  Job 2 complete.\n")
+    print("\n  [OK] MRR data written   -> data/processed/mrr_by_tenant_month/")
+    print("  [OK] Global MRR written -> data/processed/global_mrr_monthly/")
+    print("  [OK] LTV data written   -> data/processed/tenant_ltv/")
+    print("\n[OK] Job 2 complete.\n")
 
 
 def run():
@@ -234,11 +231,11 @@ def run():
         run_pandas()
         return
 
-    print("\n📊  Job 2: MRR / ARR / LTV Computation\n")
+    print("\n[JOB 2] MRR / ARR / LTV Computation\n")
 
     mrr_df, tenants_df = compute_mrr(spark)
 
-    # ── Global MRR Summary ────────────────────────────────────────────────────
+    # Global MRR summary.
     global_mrr = (
         mrr_df
         .groupBy("event_year", "event_month", "period")
@@ -251,23 +248,23 @@ def run():
         .orderBy("event_year", "event_month")
     )
 
-    print("  📈 Global MRR by Month (last 6 periods):")
+    print("  Global MRR by Month (last 6 periods):")
     global_mrr.orderBy(F.desc("period")).show(6, truncate=False)
 
-    # ── LTV ───────────────────────────────────────────────────────────────────
+    # LTV.
     ltv_df = compute_ltv(mrr_df, tenants_df)
-    print("  💰 Top 10 Tenants by Estimated LTV:")
+    print("  Top 10 Tenants by Estimated LTV:")
     ltv_df.orderBy(F.desc("estimated_ltv")).show(10, truncate=False)
 
-    # ── Write ─────────────────────────────────────────────────────────────────
+    # Write analytical datasets.
     mrr_df.write.mode("overwrite").parquet("data/processed/mrr_by_tenant_month")
     global_mrr.write.mode("overwrite").parquet("data/processed/global_mrr_monthly")
     ltv_df.write.mode("overwrite").parquet("data/processed/tenant_ltv")
 
-    print("\n  ✓ MRR data written   → data/processed/mrr_by_tenant_month/")
-    print("  ✓ Global MRR written → data/processed/global_mrr_monthly/")
-    print("  ✓ LTV data written   → data/processed/tenant_ltv/")
-    print("\n✅  Job 2 complete.\n")
+    print("\n  [OK] MRR data written   -> data/processed/mrr_by_tenant_month/")
+    print("  [OK] Global MRR written -> data/processed/global_mrr_monthly/")
+    print("  [OK] LTV data written   -> data/processed/tenant_ltv/")
+    print("\n[OK] Job 2 complete.\n")
     spark.stop()
 
 

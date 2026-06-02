@@ -1,23 +1,22 @@
 version: "3.8"
 
 # ============================================================
-# Subscription Intelligence Pipeline — Docker Compose
+# Subscription Intelligence Pipeline - Docker Compose
 # ============================================================
 # Services:
-#   spark-master  — Spark master node
-#   spark-worker  — Spark worker node
-#   postgres      — PostgreSQL database
-#   jupyter       — Jupyter notebook for exploration
-#   kafka         — Kafka broker (optional streaming layer)
-#   zookeeper     — Required by Kafka
+#   spark-master  - Spark master node
+#   spark-worker  - Spark worker node
+#   postgres      - PostgreSQL database
+#   jupyter       - Jupyter notebook for exploration
+#   kafka         - Kafka broker (optional streaming layer)
+#   zookeeper     - Required by Kafka
 #
-# Run: docker-compose up -d
-# Stop: docker-compose down
+# Run: docker compose up -d
+# Stop: docker compose down
 # ============================================================
 
 services:
-
-  # ── Apache Spark ──────────────────────────────────────────
+  # Apache Spark
   spark-master:
     image: bitnami/spark:3.5
     container_name: spark-master
@@ -48,13 +47,13 @@ services:
       - ./data:/opt/bitnami/spark/data
       - ./src:/opt/bitnami/spark/src
 
-  # ── PostgreSQL ────────────────────────────────────────────
+  # PostgreSQL
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_DB:       billing_db
-      POSTGRES_USER:     billing_user
+      POSTGRES_DB: billing_db
+      POSTGRES_USER: billing_user
       POSTGRES_PASSWORD: billing_pass
     ports:
       - "5432:5432"
@@ -67,7 +66,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Jupyter Notebook ──────────────────────────────────────
+  # Jupyter notebook
   jupyter:
     image: jupyter/pyspark-notebook:latest
     container_name: jupyter
@@ -83,13 +82,13 @@ services:
     depends_on:
       - spark-master
 
-  # ── Kafka + Zookeeper (streaming layer) ───────────────────
+  # Kafka + Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME:   2000
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
 
@@ -101,11 +100,11 @@ services:
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID:                        1
-      KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://localhost:9092
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
 volumes:
   postgres_data:

@@ -1,20 +1,20 @@
 [
   {
     "records": 50000,
-    "pandas_seconds": 0.036,
+    "pandas_seconds": 0.136,
     "spark_seconds": "N/A",
-    "winner": "Pandas \u2713 (Spark Env Missing)"
+    "winner": "Pandas (local Spark unavailable)"
   },
   {
     "records": 100000,
-    "pandas_seconds": 0.036,
+    "pandas_seconds": 0.196,
     "spark_seconds": "N/A",
-    "winner": "Pandas \u2713 (Spark Env Missing)"
+    "winner": "Pandas (local Spark unavailable)"
   },
   {
     "records": 200000,
-    "pandas_seconds": 0.035,
+    "pandas_seconds": 0.586,
     "spark_seconds": "N/A",
-    "winner": "Pandas \u2713 (Spark Env Missing)"
+    "winner": "Pandas (local Spark unavailable)"
   }
 ]

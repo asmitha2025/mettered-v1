@@ -1,5 +1,5 @@
 """
-etl_ingest.py  —  Job 1: Raw → Validated → Parquet
+etl_ingest.py - Job 1: Raw -> Validated -> Parquet
 ----------------------------------------------------
 Reads raw CSVs, enforces schema, validates data quality,
 and writes partitioned Parquet to data/processed/.
@@ -12,19 +12,29 @@ Run:
 
 import sys
 import os
+import logging
+from typing import Tuple
+
+# Setup logging configuration
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("ETL-Ingest")
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
+    from pyspark.sql import DataFrame
     from pyspark.sql import functions as F
     from pyspark.sql.types import (
         StructType, StructField, StringType,
         IntegerType, TimestampType, BooleanType
     )
 except ImportError:
+    DataFrame = None
     F = None
     StructType = StructField = StringType = IntegerType = TimestampType = BooleanType = None
 
 from utils.spark_session import get_spark
+from utils.filesystem import recreate_dir
 
 
 if StructType is not None:
@@ -63,7 +73,7 @@ VALID_EVENT_TYPES = {
 VALID_PLANS = {"starter", "growth", "business", "enterprise"}
 
 
-def validate_events(df):
+def validate_events(df: "DataFrame") -> Tuple["DataFrame", "DataFrame"]:
     """Apply data quality checks. Returns (clean_df, rejected_df)."""
     # Tag rows with validation failures
     df = df.withColumn(
@@ -75,30 +85,29 @@ def validate_events(df):
          .when(F.col("event_date").isNull(), "null event_date")
          .otherwise(None)
     )
-    clean    = df.filter(F.col("validation_error").isNull()).drop("validation_error")
+    clean = df.filter(F.col("validation_error").isNull()).drop("validation_error")
     rejected = df.filter(F.col("validation_error").isNotNull())
     return clean, rejected
 
 
-def run_pandas():
-    print("\n📥  Job 1: Raw CSV → Validated Parquet (Pandas Fallback Engine)\n")
+def run_pandas() -> None:
+    logger.info("Starting Job 1 ETL using Pandas fallback engine")
     import pandas as pd
     import numpy as np
-    import shutil
 
     events_path = "data/raw/billing_events.csv"
     tenants_path = "data/raw/tenants.csv"
 
     if not os.path.exists(events_path) or not os.path.exists(tenants_path):
-        print("  ❌ Raw data files missing. Please run generate_data.py first.")
+        logger.error("Raw source CSV files missing. Execute generate_data.py first.")
         return
 
     # Read CSVs
     events_raw = pd.read_csv(events_path, parse_dates=["event_date"], encoding="utf-8")
     tenants_raw = pd.read_csv(tenants_path, encoding="utf-8")
 
-    print(f"  ✓ Events loaded  : {len(events_raw):,} rows")
-    print(f"  ✓ Tenants loaded : {len(tenants_raw):,} rows")
+    logger.info(f"Loaded raw events shape: {events_raw.shape}")
+    logger.info(f"Loaded raw tenants shape: {tenants_raw.shape}")
 
     # Validate
     validation_error = np.select(
@@ -126,7 +135,7 @@ def run_pandas():
 
     rejected_count = len(rejected)
     if rejected_count > 0:
-        print(f"  ⚠  Rejected {rejected_count:,} bad rows → data/processed/rejected/")
+        logger.warning(f"Found {rejected_count:,} invalid rows violating schemas. Piping to DLQ.")
         os.makedirs("data/processed/rejected", exist_ok=True)
         rejected.to_parquet("data/processed/rejected/rejected.parquet", index=False)
 
@@ -138,29 +147,26 @@ def run_pandas():
     clean["is_churn_event"] = clean["event_type"].isin(["subscription_cancelled"]).astype(bool)
 
     # Write Partitioned Parquet
-    # Clean output directories if they exist to replicate overwrite mode
     for path in ["data/processed/billing_events", "data/processed/tenants"]:
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.makedirs(path, exist_ok=True)
+        recreate_dir(path)
 
     clean.to_parquet("data/processed/billing_events", partition_cols=["event_year", "event_month"], index=False)
     tenants_raw.to_parquet(os.path.join("data/processed/tenants", "part.parquet"), index=False)
 
-    print(f"\n  ✓ Clean events written  → data/processed/billing_events/ (partitioned by year/month)")
-    print(f"  ✓ Tenants written       → data/processed/tenants/")
-    print(f"\n✅  Job 1 complete.\n")
+    logger.info("Partitioned clean events Parquet datasets successfully generated.")
+    logger.info("Validated tenants list Parquet successfully generated.")
+    logger.info("Job 1 complete successfully.")
 
 
-def run():
+def run() -> None:
     spark = get_spark("ETL-Ingest")
     if spark is None:
         run_pandas()
         return
 
-    print("\n📥  Job 1: Raw CSV → Validated Parquet\n")
+    logger.info("Starting Job 1 ETL using PySpark engine")
 
-    # ── Read ─────────────────────────────────────────────────────────────────
+    # Read source CSVs.
     events_raw = (
         spark.read
         .option("header", "true")
@@ -176,30 +182,30 @@ def run():
         .csv("data/raw/tenants.csv")
     )
 
-    print(f"  ✓ Events loaded  : {events_raw.count():,} rows")
-    print(f"  ✓ Tenants loaded : {tenants_raw.count():,} rows")
+    logger.info("Raw source datasets successfully read into Spark environment.")
 
-    # ── Validate ─────────────────────────────────────────────────────────────
+    # Validate rows and send invalid records to the dead-letter output.
     clean_events, rejected = validate_events(events_raw)
     rejected_count = rejected.count()
     if rejected_count > 0:
-        print(f"  ⚠  Rejected {rejected_count:,} bad rows → data/processed/rejected/")
+        logger.warning(f"Found {rejected_count:,} invalid rows violating schemas. Piping to DLQ.")
         rejected.write.mode("overwrite").parquet("data/processed/rejected")
 
-    # ── Enrich ───────────────────────────────────────────────────────────────
+    # Enrich events with partitions and metric flags.
     enriched = (
         clean_events
         .withColumn("event_year",  F.year("event_date"))
         .withColumn("event_month", F.month("event_date"))
         .withColumn("event_date_only", F.to_date("event_date"))
-        .withColumn("is_revenue_event",
+        .withColumn(
+            "is_revenue_event",
             F.col("event_type").isin(["invoice_paid"]).cast("boolean"))
-        .withColumn("is_churn_event",
+        .withColumn(
+            "is_churn_event",
             F.col("event_type").isin(["subscription_cancelled"]).cast("boolean"))
     )
 
-    # ── Write Partitioned Parquet ─────────────────────────────────────────────
-    # Partition by tenant_id and event_month for efficient downstream reads
+    # Write partitioned Parquet datasets.
     (
         enriched
         .write
@@ -215,9 +221,9 @@ def run():
         .parquet("data/processed/tenants")
     )
 
-    print(f"\n  ✓ Clean events written  → data/processed/billing_events/ (partitioned by year/month)")
-    print(f"  ✓ Tenants written       → data/processed/tenants/")
-    print(f"\n✅  Job 1 complete.\n")
+    logger.info("Partitioned clean events Parquet datasets successfully generated.")
+    logger.info("Validated tenants list Parquet successfully generated.")
+    logger.info("Job 1 complete successfully.")
     spark.stop()
 
 

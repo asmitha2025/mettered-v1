@@ -1,226 +1,266 @@
 # Subscription Intelligence Pipeline
 
-**A production-grade PySpark ETL for SaaS billing analytics**  
-Built to understand the data infrastructure behind subscription billing platforms like Chargebee.
+Production-style data engineering project for SaaS billing analytics.
+
+This project simulates how a subscription platform turns raw billing events into
+business metrics such as MRR, ARR, LTV, churn, and cohort retention.
 
 [![CI](https://github.com/asmitham/subscription-intelligence-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/asmitham/subscription-intelligence-pipeline/actions)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://python.org)
 [![PySpark 3.5](https://img.shields.io/badge/PySpark-3.5-orange.svg)](https://spark.apache.org)
 [![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://postgresql.org)
 
----
+## Why This Project Exists
 
-## What This Project Does
+Subscription businesses need accurate answers to questions like:
 
-Processes **200,000+ subscription billing events** across 500 simulated SaaS tenants through a complete data engineering pipeline:
+- How much recurring revenue did we generate this month?
+- Which customers are growing or shrinking?
+- Which plans have the highest churn?
+- Are newer customer cohorts retaining better than older cohorts?
+- How should analytics pipelines be designed for multi-tenant SaaS data?
 
-- **Ingest** raw CSV billing events → validate schema → write partitioned **Parquet**
-- **Compute** MRR, ARR, LTV, churn rate using **PySpark window functions**
-- **Analyse** cohort retention across 12 monthly cohorts
-- **Store** results in a multi-tenant **PostgreSQL schema** with row-level security
-- **Stream** billing events via a **Kafka producer** (real-time layer)
-- **Benchmark** Spark vs Pandas at 50K / 100K / 200K records with documented tradeoffs
+This repository answers those questions with an end-to-end pipeline:
 
----
+```text
+Raw CSV events
+  -> validation and enrichment
+  -> partitioned Parquet
+  -> MRR / ARR / LTV transforms
+  -> churn and cohort retention transforms
+  -> dashboard API and PostgreSQL analytics schema
+```
+
+## What It Does
+
+- Generates up to 200,000 synthetic SaaS billing events across 500 tenants.
+- Ingests raw CSV billing data, validates required fields, and writes clean Parquet.
+- Computes MRR, ARR, MRR growth, rolling MRR, ARPU, and tenant LTV.
+- Computes churn by plan and monthly cohort retention.
+- Includes a PostgreSQL schema with indexes, materialized view design, and row-level security.
+- Includes a Kafka producer for real-time billing event simulation.
+- Serves analytics through a FastAPI dashboard API.
+- Includes pytest coverage and GitHub Actions CI.
+- Benchmarks Pandas vs PySpark tradeoffs.
+
+For interview answers, LinkedIn content, video script, demo flow, and the project improvement log, read:
+
+[docs/PROJECT_SHOWCASE_REPORT.md](docs/PROJECT_SHOWCASE_REPORT.md)
+
+For a timed screen-by-screen recording plan, read:
+
+[docs/VIDEO_WALKTHROUGH_SCRIPT.md](docs/VIDEO_WALKTHROUGH_SCRIPT.md)
 
 ## Architecture
 
-```
-Raw CSV (billing events, tenants)
-        │
-        ▼
-┌─────────────────────────────────────────────────────┐
-│  Job 1: Ingest + Validate                           │
-│  • Schema enforcement (StructType)                  │
-│  • Data quality checks (nulls, invalid types,       │
-│    negative amounts)                                │
-│  • Rejected rows → dead-letter Parquet              │
-│  • Clean rows → Parquet partitioned by year/month   │
-└──────────────────────┬──────────────────────────────┘
-                       │
-        ┌──────────────┴───────────────┐
-        ▼                              ▼
-┌───────────────────┐      ┌──────────────────────────┐
-│  Job 2: MRR/ARR   │      │  Job 3: Churn + Cohorts  │
-│  • Monthly MRR    │      │  • Churn rate by plan     │
-│  • MRR growth %   │      │  • Cohort retention       │
-│  • 3-month rolling│      │    matrix (12×12)         │
-│  • ARR, LTV, ARPU │      │  • Survival rate tracking │
-└───────────────────┘      └──────────────────────────┘
-        │                              │
-        └──────────────┬───────────────┘
-                       ▼
-             PostgreSQL (analytics store)
-             + Materialised view for dashboards
+```text
+                         +---------------------------+
+                         | Synthetic Billing Events  |
+                         | tenants.csv, events.csv   |
+                         +-------------+-------------+
+                                       |
+                                       v
+                         +---------------------------+
+                         | Job 1: Ingest + Validate  |
+                         | schema checks, bad rows   |
+                         | clean partitioned Parquet |
+                         +-------------+-------------+
+                                       |
+              +------------------------+------------------------+
+              |                                                 |
+              v                                                 v
+ +-----------------------------+                  +-----------------------------+
+ | Job 2: Revenue Metrics      |                  | Job 3: Retention Metrics    |
+ | MRR, ARR, ARPU, LTV         |                  | churn, cohort retention     |
+ | rolling and growth windows  |                  | 12-month cohort tracking    |
+ +---------------+-------------+                  +---------------+-------------+
+                 |                                                |
+                 +------------------------+-----------------------+
+                                          |
+                                          v
+                         +-----------------------------+
+                         | Analytics Serving Layer     |
+                         | FastAPI dashboard API       |
+                         | PostgreSQL schema design    |
+                         +-----------------------------+
 
-Kafka Producer ──→ billing-events topic
-(real-time layer)   [streaming architecture]
+ Kafka producer simulates real-time billing events for the streaming layer.
 ```
-
----
 
 ## Project Structure
 
-```
+```text
 subscription-intelligence-pipeline/
-├── src/
-│   ├── ingestion/
-│   │   ├── generate_data.py      # synthetic 200K billing events
-│   │   ├── etl_ingest.py         # Job 1: CSV → Parquet
-│   │   └── kafka_producer.py     # real-time event streaming
-│   ├── transforms/
-│   │   ├── mrr_transform.py      # Job 2: MRR/ARR/LTV
-│   │   └── churn_cohort.py       # Job 3: churn + cohort retention
-│   ├── analytics/
-│   │   └── benchmark.py          # Pandas vs PySpark comparison
-│   └── utils/
-│       └── spark_session.py      # centralised Spark config
-├── sql/
-│   └── schema.sql                # PostgreSQL schema + RLS policies
-├── tests/
-│   └── test_transforms.py        # pytest unit tests
-├── .github/
-│   └── workflows/ci.yml          # GitHub Actions: lint + test + schema check
-├── docker-compose.yml            # Spark + Postgres + Kafka + Jupyter
-├── requirements.txt
-├── run_pipeline.py               # master orchestrator
-└── README.md
+|-- src/
+|   |-- ingestion/
+|   |   |-- generate_data.py      # synthetic billing events
+|   |   |-- etl_ingest.py         # raw CSV -> validated Parquet
+|   |   `-- kafka_producer.py     # streaming event simulation
+|   |-- transforms/
+|   |   |-- mrr_transform.py      # MRR, ARR, LTV metrics
+|   |   `-- churn_cohort.py       # churn and cohort retention
+|   |-- analytics/
+|   |   `-- benchmark.py          # Pandas vs PySpark benchmark
+|   |-- utils/
+|   |   |-- filesystem.py         # local output cleanup helpers
+|   |   `-- spark_session.py      # Spark session with Pandas fallback support
+|   `-- web/
+|       |-- app.py                # FastAPI dashboard API
+|       `-- templates/index.html  # dashboard UI
+|-- sql/schema.sql                # PostgreSQL schema, indexes, RLS
+|-- tests/
+|   |-- test_generation.py        # synthetic data behavior
+|   |-- test_spark_session.py     # Spark/Pandas engine selection
+|   `-- test_transforms.py        # metric and validation logic
+|-- docs/
+|   |-- PROJECT_SHOWCASE_REPORT.md
+|   `-- benchmark_results.json
+|-- docker-compose.yml
+|-- requirements.txt
+|-- setup.cfg
+|-- run_pipeline.py
+|-- run_dashboard.py
+`-- README.md
 ```
-
----
 
 ## Quick Start
 
-### Option A: Local (no Docker)
+### Local Run
 
 ```bash
-# 1. Clone
-git clone https://github.com/asmitham/subscription-intelligence-pipeline.git
-cd subscription-intelligence-pipeline
-
-# 2. Install
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Run everything
-python run_pipeline.py --records 50000    # quick run (50K records)
-python run_pipeline.py                    # full run (200K records)
+python run_pipeline.py --records 50000
+python view_outputs.py
 ```
 
-### Option B: Docker (full stack)
+For a smaller smoke test:
 
 ```bash
-docker-compose up -d
-docker exec spark-master spark-submit src/ingestion/etl_ingest.py
+python run_pipeline.py --records 1000 --skip-benchmark
 ```
 
-### Run tests
+### Dashboard
+
+```bash
+python run_dashboard.py
+```
+
+The launcher starts a FastAPI server on the first available local port from
+`8000` onward.
+
+### Tests
 
 ```bash
 pytest tests/ -v
 ```
 
-### Kafka streaming (optional)
+### Critical Lint Check
 
 ```bash
-# Start Kafka via docker-compose, then:
-python src/ingestion/kafka_producer.py --rate 20
-
-# Dry-run (no Kafka needed):
-python src/ingestion/kafka_producer.py --dry-run
+flake8 src tests --jobs=1 --count --select=E9,F63,F7,F82 --show-source --statistics
 ```
 
----
+### Kafka Dry Run
 
-## Key Design Decisions
-
-### Why PySpark over Pandas?
-
-Short answer: at this scale, Pandas is actually faster. I benchmarked both:
-
-| Records | Pandas | PySpark | Winner |
-|---------|--------|---------|--------|
-| 50,000  | 0.8s   | 4.2s    | Pandas |
-| 100,000 | 1.6s   | 5.1s    | Pandas |
-| 200,000 | 3.1s   | 2.4s    | PySpark ✓ |
-
-**Conclusion:** Spark's distributed overhead (JVM startup, task scheduling, shuffle) costs ~3-4 seconds baseline. For files under 150K rows on a single machine, Pandas wins. Spark earns its cost at 150K+ rows when data no longer fits comfortably in memory, or when running across multiple nodes.
-
-I chose PySpark for this project because:
-1. The architecture is designed to scale to millions of events (as a real billing platform would)
-2. Learning distributed execution model, partition management, and window functions at scale
-3. The Parquet + partition strategy (year/month) means downstream queries scan only the partitions they need — a Pandas-based solution can't do this
-
-### Why partition by year and month?
-
-```python
-enriched.write.partitionBy("event_year", "event_month").parquet(...)
+```bash
+python src/ingestion/kafka_producer.py --dry-run --rate 2 --duration 5
 ```
-
-A typical MRR query filters `WHERE event_month = 3 AND event_year = 2024`. With partitioned Parquet, Spark reads only those folders — **predicate pushdown**. For a 200K event dataset across 24 months, this means reading ~8K rows instead of 200K. At 10M events, this difference is critical.
-
-### Why a materialised view in PostgreSQL?
-
-```sql
-CREATE MATERIALIZED VIEW mv_monthly_revenue AS ...
-REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_revenue;
-```
-
-Dashboard queries for MRR trends run in milliseconds on the materialised view versus 2-3 seconds on base tables. The `CONCURRENTLY` option allows refresh without locking reads — production-safe for a live billing dashboard.
-
-### Why row-level security?
-
-```sql
-CREATE POLICY tenant_isolation_events ON billing_events
-    USING (tenant_id = current_setting('app.tenant_id', TRUE));
-```
-
-In a multi-tenant SaaS platform, tenant A must never see tenant B's data — even if there's an application bug. Pushing this guarantee into the database (not just the application layer) means it can't be accidentally bypassed. This is how Chargebee isolates customer data at the platform level.
-
----
 
 ## Metrics Computed
 
-| Metric | Description | Spark Feature Used |
-|--------|-------------|-------------------|
-| MRR | Monthly Recurring Revenue per tenant | `groupBy` + `sum` |
-| MRR Growth % | Month-over-month change | `lag()` window function |
-| Cumulative MRR | Running total per tenant | `sum` with unbounded window |
-| Rolling 3M MRR | 3-month moving average | `avg` with rowsBetween window |
-| ARR | Annual Recurring Revenue (MRR × 12) | derived column |
-| ARPU | Average Revenue Per User | `avg` aggregation |
-| LTV | Lifetime Value per tenant | ARPU × active months |
-| Churn Rate | Cancelled / Active per month, per plan | two `groupBy` + join |
-| Cohort Retention | % of cohort still active after N months | `join` + `pivot` logic |
+| Metric | Meaning | Implementation |
+| --- | --- | --- |
+| MRR | Monthly recurring revenue per tenant | successful `invoice_paid` grouped by tenant and month |
+| ARR | Annual recurring revenue | `MRR * 12` |
+| MRR growth | Month-over-month revenue movement | lag window by tenant |
+| Rolling MRR | 3-month moving average | rolling window |
+| ARPU | Average revenue per user | average tenant monthly revenue |
+| LTV | Estimated lifetime value | average monthly MRR times active months |
+| Churn rate | cancelled tenants divided by active tenants | monthly plan-level aggregation |
+| Cohort retention | retained tenants after signup month | cohort month and months-since-start matrix |
 
----
+## Verified Results
 
-## What I Learned / Would Do Differently in Production
+These checks were run successfully in the local project environment:
 
-1. **Airflow for orchestration** — `run_pipeline.py` is a script, not a scheduler. In production, each job would be an Airflow DAG task with dependency tracking, retries, and SLA alerts.
+```text
+pytest: 14 passed
+flake8 full project check: 0 issues
+full pipeline run: passed with 200,000 records
+full generator run: produced exactly 200,000 billing events
+kafka dry run: passed
+```
 
-2. **Delta Lake instead of plain Parquet** — Delta adds ACID transactions, schema evolution, and time-travel. For a billing platform where late-arriving events are common, `MERGE INTO` is essential.
+Local note: I validated that Spark 3.5 can initialize with a local JDK, but
+Windows local Parquet writes require proper Hadoop native binaries. To keep the
+demo reliable, auto mode uses the Pandas fallback on Windows. Spark can still be
+forced in a correctly configured Linux, WSL, Docker, or cluster environment with
+`SUBSCRIPTION_PIPELINE_ENGINE=spark`.
 
-3. **Spark on YARN/Kubernetes** — `local[*]` mode uses one machine. Real scale means submitting to a cluster where Spark distributes work across many executors.
+Latest local benchmark results:
 
-4. **dbt for the PostgreSQL transforms** — The materialised view refresh is manual. dbt would version-control the SQL, add tests, and document lineage automatically.
+| Records | Pandas seconds | PySpark seconds | Winner |
+| --- | ---: | ---: | --- |
+| 50,000 | 0.136 | N/A | Pandas (local Spark unavailable) |
+| 100,000 | 0.196 | N/A | Pandas (local Spark unavailable) |
+| 200,000 | 0.586 | N/A | Pandas (local Spark unavailable) |
 
-5. **Schema registry with Kafka** — The Kafka producer sends raw JSON. In production, Avro schemas + a Confluent Schema Registry would enforce contract between producers and consumers.
+## Key Design Decisions
 
----
+### PySpark with Pandas Fallback
 
-## CI Pipeline
+Spark is the target architecture for distributed data processing, partitioned
+storage, and large-scale transformations. Pandas is kept as a fallback so the
+project can still run on laptops without a fully configured Spark runtime.
 
-Every push to `main` runs:
+That tradeoff is intentional: small local datasets often run faster in Pandas,
+while Spark becomes valuable when data size, distributed execution, and
+fault-tolerant processing matter.
 
-1. **Lint** — flake8 checks for syntax errors and undefined names
-2. **Unit tests** — pytest with PySpark (schema validation, MRR calculations, churn logic)
-3. **Schema check** — spins up a real PostgreSQL container and applies `schema.sql`
-4. **Data gen smoke test** — generates 1K records, verifies output files exist
+### Partitioned Parquet
 
----
+Clean billing events are written by `event_year` and `event_month`. This makes
+monthly analytics cheaper because downstream jobs can scan only the relevant
+partitions instead of every historical event.
+
+### Multi-Tenant PostgreSQL Design
+
+The SQL schema includes tenant-scoped tables, hot-query indexes, a materialized
+view for revenue analytics, and row-level security policies. The goal is to show
+how billing analytics should protect tenant isolation beyond application code.
+
+### Cohort Retention
+
+MRR explains revenue size, but cohort retention explains revenue quality. The
+project tracks tenant activity after signup month so the business can see when
+customers drop off.
+
+## Production Improvements I Would Add
+
+- Airflow, Dagster, or Prefect for scheduled orchestration.
+- Delta Lake, Apache Iceberg, or Hudi for ACID lakehouse tables.
+- Schema registry with Avro or Protobuf for Kafka contracts.
+- Great Expectations or Soda checks for richer data quality.
+- dbt for SQL model versioning, tests, documentation, and lineage.
+- Cloud object storage and Spark on Kubernetes, EMR, or Dataproc.
+- Secrets management instead of local environment variables.
+- Authentication, authorization, and tenant-scoped access controls for derived dashboard views.
+
+## Interview Pitch
+
+I built an end-to-end SaaS billing analytics pipeline that turns raw
+subscription events into MRR, ARR, LTV, churn, and cohort-retention insights.
+The project covers ingestion, validation, partitioned storage, analytical
+transforms, multi-tenant database design, streaming simulation, dashboard
+serving, tests, and CI.
 
 ## Author
 
-**Asmitha M** — Data Engineer  
-Chennai, Tamil Nadu  
-[linkedin.com/in/asmitham](https://linkedin.com/in/asmitham) · [github.com/asmitham](https://github.com/asmitham)
+**Asmitha M**
+Data Engineer
+Chennai, Tamil Nadu
+[linkedin.com/in/asmitham](https://linkedin.com/in/asmitham) |
+[github.com/asmitham](https://github.com/asmitham)

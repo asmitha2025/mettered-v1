@@ -1,5 +1,5 @@
 """
-test_transforms.py  —  Unit Tests
+test_transforms.py - Unit Tests
 ----------------------------------
 Tests for ETL validation logic and MRR calculations.
 Supports dual-engine execution: tests PySpark if Java is available,
@@ -46,7 +46,7 @@ def spark():
     return None
 
 
-# ── Test Data ──────────────────────────────────────────────────────────────────
+# Test data.
 
 if StructType is not None:
     EVENTS_SCHEMA = StructType([
@@ -66,12 +66,12 @@ else:
     EVENTS_SCHEMA = None
 
 SAMPLE_EVENTS = [
-    ("EVT_001", "TNT_001", "invoice_paid",          "starter", 299, "INR", "2024-01-15 10:00:00", "success", "INV_001", 2, False),
-    ("EVT_002", "TNT_001", "invoice_paid",          "starter", 299, "INR", "2024-02-15 10:00:00", "success", "INV_002", 2, False),
-    ("EVT_003", "TNT_002", "invoice_paid",          "growth",  999, "INR", "2024-01-20 10:00:00", "success", "INV_003", 5, False),
-    ("EVT_004", "TNT_001", "subscription_cancelled","starter",   0, "INR", "2024-03-01 10:00:00", "success", "INV_004", 2, False),
-    ("EVT_005", "TNT_003", "invoice_paid",          "business",2499,"INR", "2024-01-25 10:00:00", "success", "INV_005", 10,False),
-    ("EVT_006", "TNT_999", "invoice_paid",          "INVALID", -100,"INR", "2024-01-01 10:00:00", "success", "INV_006", 1, False),  # bad row
+    ("EVT_001", "TNT_001", "invoice_paid", "starter", 299, "INR", "2024-01-15 10:00:00", "success", "INV_001", 2, False),
+    ("EVT_002", "TNT_001", "invoice_paid", "starter", 299, "INR", "2024-02-15 10:00:00", "success", "INV_002", 2, False),
+    ("EVT_003", "TNT_002", "invoice_paid", "growth", 999, "INR", "2024-01-20 10:00:00", "success", "INV_003", 5, False),
+    ("EVT_004", "TNT_001", "subscription_cancelled", "starter", 0, "INR", "2024-03-01 10:00:00", "success", "INV_004", 2, False),
+    ("EVT_005", "TNT_003", "invoice_paid", "business", 2499, "INR", "2024-01-25 10:00:00", "success", "INV_005", 10, False),
+    ("EVT_006", "TNT_999", "invoice_paid", "INVALID", -100, "INR", "2024-01-01 10:00:00", "success", "INV_006", 1, False),
 ]
 
 
@@ -96,7 +96,7 @@ def make_events_df_pandas(rows=None):
     return df.drop(columns=["event_date_str"])
 
 
-# ── Tests ──────────────────────────────────────────────────────────────────────
+# Tests.
 
 class TestValidation:
 
@@ -250,4 +250,3 @@ class TestEnrichment:
             enriched = df.withColumn("yr", F.year("event_date")).withColumn("mo", F.month("event_date"))
             jan_rows = enriched.filter(F.col("mo") == 1).count()
             assert jan_rows == 4  # EVT_001, EVT_003, EVT_005, and EVT_006 are in January
-

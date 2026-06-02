@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SubIntel - Subscription Intelligence Pipeline Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  
+  <style>
+    :root {
+      /* Palette Styles - Slate & Indigo Premium Light Theme */
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f8fafc;
+      --color-background-info: #e6f1fb;
+      --color-border-secondary: #e2e8f0;
+      --color-border-tertiary: #cbd5e1;
+      --color-text-primary: #0f172a;
+      --color-text-secondary: #475569;
+      --color-text-tertiary: #94a3b8;
+      --color-text-success: #10b981;
+      --color-text-danger: #ef4444;
+      --color-text-warning: #f59e0b;
+      --color-text-info: #185fa5;
+      --border-radius-lg: 12px;
+      --border-radius-md: 8px;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --transition-speed: 0.2s;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+    
+    [data-theme="dark"] {
+      /* Palette Styles - Midnight & Royal Indigo Premium Dark Theme */
+      --color-background-primary: #0f172a;
+      --color-background-secondary: #020617;
+      --color-background-info: #1e293b;
+      --color-border-secondary: #1e293b;
+      --color-border-tertiary: #334155;
+      --color-text-primary: #f8fafc;
+      --color-text-secondary: #cbd5e1;
+      --color-text-tertiary: #64748b;
+      --color-text-success: #34d399;
+      --color-text-danger: #f87171;
+      --color-text-warning: #fbbf24;
+      --color-text-info: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background: var(--color-background-secondary);
+      font-family: var(--font-sans);
+      color: var(--color-text-secondary);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      transition: background-color var(--transition-speed);
+    }
+
+    .app {
+      display: flex;
+      width: 96%;
+      max-width: 1200px;
+      height: 680px;
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      font-family: var(--font-sans);
+      transition: border-color var(--transition-speed), background-color var(--transition-speed);
+    }
+    
+    .sidebar {
+      width: 220px;
+      border-right: 1px solid var(--color-border-secondary);
+      display: flex;
+      flex-direction: column;
+      background: var(--color-background-secondary);
+      flex-shrink: 0;
+      transition: background-color var(--transition-speed), border-color var(--transition-speed);
+    }
+    
+    .s-logo {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--color-border-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .s-logo-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      letter-spacing: -0.02em;
+    }
+    
+    .s-logo-sub {
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+    
+    .theme-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color var(--transition-speed), background-color var(--transition-speed);
+    }
+    .theme-toggle-btn:hover {
+      color: var(--color-text-primary);
+      background: var(--color-background-info);
+    }
+    
+    .s-nav {
+      padding: 12px 0;
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .s-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 18px;
+      font-size: 12.5px;
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      transition: all var(--transition-speed);
+      position: relative;
+    }
+    
+    .s-item:hover {
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      padding-left: 21px;
+    }
+    
+    .s-item.active {
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      font-weight: 600;
+    }
+    .s-item.active::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #185FA5;
+    }
+    
+    .s-item i {
+      font-size: 16px;
+    }
+    
+    .s-section {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--color-text-tertiary);
+      padding: 14px 18px 6px;
+    }
+    
+    .s-bottom {
+      padding: 16px;
+      border-top: 1px solid var(--color-border-secondary);
+    }
+    
+    .s-tenant {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .s-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #185FA5;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .s-tenant-name {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    
+    .s-tenant-plan {
+      font-size: 9.5px;
+      color: var(--color-text-tertiary);
+    }
+    
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--color-background-primary);
+    }
+    
+    .topbar {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--color-border-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    
+    .page-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .date-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border: 1px solid var(--color-border-secondary);
+      border-radius: 20px;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-speed);
+    }
+    
+    .date-pill.active {
+      background: var(--color-background-info);
+      border-color: transparent;
+      color: var(--color-text-info);
+    }
+    .date-pill:hover:not(.active) {
+      background: var(--color-background-secondary);
+      border-color: var(--color-border-tertiary);
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    
+    .panel-screen {
+      display: none;
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    
+    .panel-screen.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* KPIs and Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .kpi {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+    }
+    .kpi:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    .kpi-label {
+      font-size: 9.5px;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+    
+    .kpi-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      line-height: 1.1;
+      font-family: var(--font-sans);
+    }
+    
+    .kpi-trend {
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    
+    .up { color: var(--color-text-success); }
+    .dn { color: var(--color-text-danger); }
+    .neutral { color: var(--color-text-tertiary); }
+    
+    .row2 {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .row3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .card {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .card-title {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 14px;
+    }
+    
+    /* Charts */
+    .chart-wrap {
+      height: 120px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      padding-top: 10px;
+    }
+    
+    .bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+    
+    .bar-b {
+      border-radius: 4px 4px 0 0;
+      width: 100%;
+      transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity var(--transition-speed);
+      position: relative;
+    }
+    
+    .bar-b:hover {
+      opacity: .85;
+      cursor: pointer;
+    }
+    
+    .bar-b::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-text-primary);
+      color: var(--color-background-primary);
+      font-size: 9px;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition-speed);
+      white-space: nowrap;
+      box-shadow: var(--shadow-sm);
+    }
+    .bar-b:hover::after {
+      opacity: 1;
+    }
+    
+    .bar-lbl {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+    }
+    
+    /* Tables */
+    .t-head {
+      display: flex;
+      padding: 0 6px 8px;
+      border-bottom: 1px solid var(--color-border-secondary);
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    
+    .t-row {
+      display: flex;
+      padding: 9px 6px;
+      border-bottom: 1px solid var(--color-border-secondary);
+      font-size: 11.5px;
+      align-items: center;
+      transition: background-color var(--transition-speed);
+    }
+    .t-row:hover {
+      background: var(--color-background-secondary);
+    }
+    .t-row:last-child {
+      border: none;
+    }
+    
+    .col-name {
+      flex: 2;
+      color: var(--color-text-primary);
+      font-weight: 600;
+    }
+    .col-plan {
+      flex: 1;
+    }
+    .col-val {
+      flex: 1;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-primary);
+    }
+    .col-trend {
+      flex: .8;
+      text-align: right;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    
+    .plan-badge {
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      display: inline-block;
+      text-transform: capitalize;
+    }
+    .pb-starter { background: #e0f2fe; color: #0369a1; }
+    .pb-growth { background: #dcfce7; color: #15803d; }
+    .pb-biz { background: #fef3c7; color: #b45309; }
+    .pb-ent { background: #f3e8ff; color: #6b21a8; }
+    
+    /* Cohort Matrix styles */
+    .cohort-g {
+      display: grid;
+      grid-template-columns: 60px repeat(12, 1fr);
+      gap: 2px;
+      overflow-x: auto;
+      padding: 4px 0;
+    }
+    
+    .c-cell {
+      font-size: 9px;
+      text-align: center;
+      padding: 6px 2px;
+      border-radius: 3px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      transition: transform 0.15s;
+    }
+    .c-cell:hover:not(.c-hd):not(.c-rn) {
+      transform: scale(1.08);
+      z-index: 2;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .c-hd {
+      color: var(--color-text-tertiary);
+      font-weight: 600;
+      font-family: var(--font-sans);
+    }
+    
+    .c-rn {
+      text-align: left;
+      color: var(--color-text-secondary);
+      font-weight: 600;
+      padding-top: 6px;
+      font-family: var(--font-sans);
+    }
+    
+    /* Pipeline screen */
+    .pipeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .p-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      transition: transform var(--transition-speed), background-color var(--transition-speed);
+    }
+    .p-item:hover {
+      background: var(--color-background-secondary);
+      transform: translateX(3px);
+    }
+    
+    .p-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--border-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    
+    .p-info {
+      flex: 1;
+    }
+    
+    .p-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    
+    .p-meta {
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+    
+    .p-status {
+      font-size: 9.5px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .st-ok { background: #dcfce7; color: #15803d; }
+    .st-run { background: #fef3c7; color: #b45309; }
+    .st-idle { background: var(--color-background-secondary); color: var(--color-text-tertiary); }
+    
+    .p-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: var(--color-border-secondary);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    
+    .p-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.8s ease-in-out;
+    }
+    
+    /* Benchmark Screen */
+    .bench-t {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    
+    .bench-t th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      border-bottom: 1px solid var(--color-border-secondary);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-weight: 600;
+    }
+    
+    .bench-t td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--color-border-secondary);
+      color: var(--color-text-primary);
+    }
+    
+    .bench-t tr:last-child td {
+      border: none;
+    }
+    
+    .w-badge {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .w-pandas { background: #e0f2fe; color: #0369a1; }
+    .w-spark { background: #fef3c7; color: #b45309; }
+    
+    .brow {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .bseg {
+      height: 6px;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .empty-note {
+      font-size: 12px;
+      color: var(--color-text-tertiary);
+      text-align: center;
+      padding: 40px 0;
+    }
+    
+    /* Premium Interactive elements */
+    .search-input {
+      font-size: 11.5px;
+      padding: 6px 12px;
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      outline: none;
+      transition: all var(--transition-speed);
+      width: 180px;
+    }
+    .search-input:focus {
+      border-color: #185FA5;
+      box-shadow: 0 0 0 2px rgba(24, 95, 165, 0.15);
+    }
+    
+    .plan-select {
+      font-size: 11.5px;
+      padding: 6px 12px;
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      outline: none;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+    }
+    .plan-select:focus {
+      border-color: #185FA5;
+    }
+    
+    .table-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 10px;
+    }
+    
+    .btn {
+      background: #185FA5;
+      color: #ffffff;
+      border: none;
+      border-radius: var(--border-radius-md);
+      padding: 6px 14px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all var(--transition-speed);
+    }
+    .btn:hover {
+      background: #0c447c;
+      transform: translateY(-1px);
+    }
+    .btn:active {
+      transform: translateY(0);
+    }
+    .btn:disabled {
+      background: var(--color-border-tertiary);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-secondary {
+      background: var(--color-background-info);
+      color: var(--color-text-info);
+    }
+    .btn-secondary:hover {
+      background: #d3e9f8;
+    }
+    
+    .btn-icon-only {
+      padding: 6px;
+      border-radius: 50%;
+    }
+    
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      font-size: 11.5px;
+      color: var(--color-text-tertiary);
+    }
+    
+    /* Live Job Runner styles */
+    .runner-panel {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .runner-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .console-logs {
+      background: #020617;
+      color: #38bdf8;
+      border-radius: var(--border-radius-md);
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.4;
+      height: 160px;
+      overflow-y: auto;
+      border: 1px solid #1e293b;
+      white-space: pre-wrap;
+    }
+    
+    .loader-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      z-index: 10;
+      border-radius: var(--border-radius-lg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    [data-theme="dark"] .loader-overlay {
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .loader-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+    
+    .spinner {
+      animation: spin 1s linear infinite;
+      color: #185FA5;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 900px) {
+      body {
+        align-items: stretch;
+        justify-content: flex-start;
+        overflow: auto;
+      }
+
+      .app {
+        width: 100%;
+        min-height: 100vh;
+        height: auto;
+        max-width: none;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border-secondary);
+      }
+
+      .s-logo {
+        padding: 14px 18px;
+      }
+
+      .s-nav {
+        display: flex;
+        gap: 4px;
+        padding: 8px 12px;
+        overflow-x: auto;
+      }
+
+      .s-section,
+      .s-bottom {
+        display: none;
+      }
+
+      .s-item {
+        flex: 0 0 auto;
+        border-radius: var(--border-radius-md);
+        padding: 8px 12px;
+        white-space: nowrap;
+      }
+
+      .s-item:hover {
+        padding-left: 12px;
+      }
+
+      .s-item.active::after {
+        left: 10px;
+        right: 10px;
+        top: auto;
+        bottom: 0;
+        width: auto;
+        height: 2px;
+      }
+
+      .main {
+        min-height: 0;
+        overflow: visible;
+      }
+
+      .content {
+        overflow: visible;
+        padding: 16px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .row2,
+      .row3,
+      .runner-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        overflow-x: auto;
+      }
+
+      .cohort-g {
+        min-width: 780px;
+      }
+
+      .bench-t {
+        min-width: 720px;
+      }
+
+      .t-head,
+      .t-row {
+        min-width: 560px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 16px;
+      }
+
+      .topbar-right,
+      .table-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .date-pill {
+        flex: 1;
+        text-align: center;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-val {
+        font-size: 20px;
+      }
+
+      .chart-wrap {
+        min-width: 520px;
+      }
+
+      .search-input,
+      .plan-select {
+        width: 100%;
+      }
+
+      .p-item {
+        align-items: flex-start;
+      }
+
+      .p-status {
+        flex-shrink: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app" style="position: relative;">
+  <div class="loader-overlay" id="loading-overlay">
+    <i class="ti ti-loader spinner"></i>
+  </div>
+  
+  <div class="sidebar">
+    <div class="s-logo">
+      <div>
+        <div class="s-logo-name">SubIntel</div>
+        <div class="s-logo-sub">Billing Analytics</div>
+      </div>
+      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">
+        <i class="ti ti-sun" id="theme-icon"></i>
+      </button>
+    </div>
+    
+    <div class="s-nav">
+      <div class="s-section">Analytics</div>
+      <div class="s-item active" onclick="nav('overview', this)"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Overview</div>
+      <div class="s-item" onclick="nav('tenants', this)"><i class="ti ti-building" aria-hidden="true"></i> Tenants</div>
+      <div class="s-item" onclick="nav('cohorts', this)"><i class="ti ti-table" aria-hidden="true"></i> Cohort Retention</div>
+      <div class="s-item" onclick="nav('churn', this)"><i class="ti ti-trending-down" aria-hidden="true"></i> Churn Analysis</div>
+      <div class="s-section">Engineering</div>
+      <div class="s-item" onclick="nav('pipeline', this)"><i class="ti ti-database" aria-hidden="true"></i> Pipeline Jobs</div>
+      <div class="s-item" onclick="nav('benchmark', this)"><i class="ti ti-bolt" aria-hidden="true"></i> Benchmark</div>
+    </div>
+    
+    <div class="s-bottom">
+      <div class="s-tenant">
+        <div class="s-avatar" id="sidebar-avatar">AM</div>
+        <div>
+          <div class="s-tenant-name">Asmitha M</div>
+          <div class="s-tenant-plan">Data Engineer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">Overview</div>
+      <div class="topbar-right" id="topbar-actions">
+        <!-- Default Period Actions, hidden on other pages -->
+        <div class="date-pill" onclick="setPeriod(this, '6m')">6M</div>
+        <div class="date-pill active" onclick="setPeriod(this, '1y')">1Y</div>
+        <div class="date-pill" onclick="setPeriod(this, 'all')">All</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- OVERVIEW SCREEN -->
+      <div class="panel-screen active" id="screen-overview">
+        <div class="kpi-grid" id="overview-kpis">
+          <!-- Populated dynamically -->
+        </div>
+        
+        <div class="row2">
+          <div class="card">
+            <div class="card-title">MRR Trend - Monthly</div>
+            <div class="chart-wrap" id="mrr-trend-chart">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-title">Revenue by Plan</div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:4px" id="plan-revenue-list">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-title">Top Tenants by LTV</div>
+          <div class="t-head">
+            <div class="col-name">Company</div>
+            <div class="col-plan">Plan</div>
+            <div class="col-val">LTV</div>
+            <div class="col-val">MRR</div>
+            <div class="col-trend">MoM</div>
+          </div>
+          <div id="overview-top-tenants">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TENANTS SCREEN -->
+      <div class="panel-screen" id="screen-tenants">
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-label">Total Tenants</div>
+            <div class="kpi-val" id="tenant-kpi-total">0</div>
+            <div class="kpi-trend neutral">All accounts</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Active</div>
+            <div class="kpi-val" id="tenant-kpi-active">0</div>
+            <div class="kpi-trend up" id="tenant-kpi-retention">0% active</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Avg LTV</div>
+            <div class="kpi-val" id="tenant-kpi-ltv">INR 0</div>
+            <div class="kpi-trend up">Average lifetime value</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">ARPU</div>
+            <div class="kpi-val" id="tenant-kpi-arpu">INR 0</div>
+            <div class="kpi-trend up">Monthly average</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="table-actions">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="tenant-search" class="search-input" placeholder="Search by name or ID..." oninput="filterTenants()">
+              <select id="tenant-plan-filter" class="plan-select" onchange="filterTenants()">
+                <option value="all">All Plans</option>
+                <option value="starter">Starter</option>
+                <option value="growth">Growth</option>
+                <option value="business">Business</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div style="font-size: 11.5px;" id="tenant-filtered-count">
+              Showing 0 accounts
+            </div>
+          </div>
+          
+          <div class="t-head">
+            <div class="col-name">Company</div>
+            <div class="col-plan">Plan</div>
+            <div class="col-val">MRR</div>
+            <div class="col-val">Active Months</div>
+            <div class="col-val">LTV</div>
+            <div class="col-trend">Status</div>
+          </div>
+          <div id="tenants-table-body">
+            <!-- Populated dynamically -->
+          </div>
+          
+          <div class="pagination-bar">
+            <button class="btn btn-secondary btn-icon-only" onclick="changeTenantPage(-1)" id="btn-prev-page"><i class="ti ti-chevron-left"></i></button>
+            <span id="tenant-page-indicator">Page 1 of 1</span>
+            <button class="btn btn-secondary btn-icon-only" onclick="changeTenantPage(1)" id="btn-next-page"><i class="ti ti-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- COHORTS SCREEN -->
+      <div class="panel-screen" id="screen-cohorts">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">Cohort Retention Matrix - % active after N months</div>
+          <div class="cohort-g" id="cohorts-matrix-body">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Observed Retention Insight</div>
+          <p style="font-size:12.5px;color:var(--color-text-secondary);line-height:1.7" id="cohorts-insight-text">
+            Generating cohort retention matrix analysis...
+          </p>
+        </div>
+      </div>
+
+      <!-- CHURN SCREEN -->
+      <div class="panel-screen" id="screen-churn">
+        <div class="kpi-grid" id="churn-kpis">
+          <!-- Populated dynamically -->
+        </div>
+        <div class="row3">
+          <div class="card">
+            <div class="card-title">Churn Rate by Plan</div>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:4px" id="plan-churn-bars">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">High Churn Risk Tenants</div>
+            <div id="churn-risk-list">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PIPELINE SCREEN -->
+      <div class="panel-screen" id="screen-pipeline">
+        <div class="pipeline-list" id="pipeline-jobs-list">
+          <!-- Populated dynamically -->
+        </div>
+        
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-title">ETL Pipeline Orchestrator</div>
+          <div class="runner-panel">
+            <div class="runner-controls">
+              <div style="font-size: 11.5px; margin-bottom: 6px;">
+                Generate dynamic simulated events and process them through the complete data engineering pipeline:
+              </div>
+              <div style="display:flex; flex-direction:column; gap: 8px;">
+                <label style="font-size: 10px; font-weight:600; text-transform:uppercase; color:var(--color-text-tertiary)">Simulation Volume</label>
+                <select id="pipeline-run-records" class="plan-select" style="width:100%">
+                  <option value="10000">10,000 billing events (Fast Run)</option>
+                  <option value="50000" selected>50,000 billing events (Standard)</option>
+                  <option value="100000">100,000 billing events (Full Test)</option>
+                  <option value="200000">200,000 billing events (Large local run)</option>
+                </select>
+                <button class="btn" id="run-pipeline-btn" onclick="triggerPipelineRun()" style="justify-content: center; padding: 10px 0;">
+                  <i class="ti ti-play-card-filled"></i> Run ETL Pipeline
+                </button>
+              </div>
+              
+              <div style="border-top:1px solid var(--color-border-secondary); padding-top:10px; margin-top:6px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
+                  <span style="font-weight:600;">Status:</span>
+                  <span id="run-status-text" class="neutral" style="font-weight:600;">IDLE</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
+                  <span style="font-weight:600;">Step:</span>
+                  <span id="run-step-text" style="color:var(--color-text-tertiary)">Not started</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:10px;">
+                  <span style="font-weight:600;">Elapsed Time:</span>
+                  <span id="run-time-text" style="font-family:var(--font-mono)">0.0s</span>
+                </div>
+                <div class="p-bar-wrap" style="height:6px;">
+                  <div class="p-bar" id="run-progress-bar" style="width:0%; background:#185FA5"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--color-text-tertiary)">Pipeline Output Console Logs</span>
+                <button class="btn btn-secondary" style="font-size:9.5px; padding:3px 8px;" onclick="clearLogs()">Clear Console</button>
+              </div>
+              <pre class="console-logs" id="run-logs-console">Console logs idle. Run pipeline to stream process output...</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BENCHMARK SCREEN -->
+      <div class="panel-screen" id="screen-benchmark">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Pandas vs PySpark - Monthly Aggregations Speed</div>
+          <table class="bench-t">
+            <thead>
+              <tr>
+                <th>Records</th>
+                <th>Pandas</th>
+                <th>PySpark</th>
+                <th>Performance Visual</th>
+                <th>Speed Winner</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-table-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <div class="card-title">How to read this benchmark</div>
+          <p style="font-size:12.5px;color:var(--color-text-secondary);line-height:1.7">
+            Distributed engines like PySpark have structural scheduling costs, including JVM startup, partition management, executor coordination, and local file-commit requirements. This saved local benchmark was generated on Windows, where Spark can initialize with Java but reliable local Parquet writes require Hadoop native binaries. The benchmark therefore records Pandas timings and marks Spark as unavailable for local auto mode. In a production review, this is the honest conclusion: choose Pandas for small local data, and choose Spark when distributed scale, fault tolerance, and partitioned processing justify the overhead.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  let activePeriod = '1y';
+  let activeTab = 'overview';
+  
+  // Pagination & Filter state for Tenants tab
+  let tenantSearchText = '';
+  let tenantPlanFilter = 'all';
+  let tenantCurrentPage = 1;
+  let pipelinePollInterval = null;
+
+  function showLoading(show) {
+    const overlay = document.getElementById('loading-overlay');
+    if (show) {
+      overlay.classList.add('active');
+    } else {
+      overlay.classList.remove('active');
+    }
+  }
+
+  // Navigation controller
+  function nav(screen, el) {
+    document.querySelectorAll('.panel-screen').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.s-item').forEach(i => i.classList.remove('active'));
+    
+    document.getElementById('screen-' + screen).classList.add('active');
+    if (el) el.classList.add('active');
+    
+    activeTab = screen;
+    
+    const titles = {
+      overview: 'Billing Analytics Overview',
+      tenants: 'SaaS Accounts & Tenants Directory',
+      cohorts: 'Monthly Retention Cohort Heatmap',
+      churn: 'Customer Plan Churn & Risk Management',
+      pipeline: 'Data Pipeline Jobs',
+      benchmark: 'Pandas vs PySpark Benchmark'
+    };
+    
+    document.getElementById('page-title').textContent = titles[screen] || screen;
+    
+    // Manage actions inside the topbar
+    const actions = document.getElementById('topbar-actions');
+    if (screen === 'overview') {
+      actions.style.display = 'flex';
+    } else {
+      actions.style.display = 'none';
+    }
+    
+    loadTabData(screen);
+  }
+
+  // Set time period filters
+  function setPeriod(el, period) {
+    document.querySelectorAll('.date-pill').forEach(d => d.classList.remove('active'));
+    el.classList.add('active');
+    activePeriod = period;
+    if (activeTab === 'overview') {
+      loadOverviewData();
+    }
+  }
+
+  // Route tab data loading
+  function loadTabData(tab) {
+    if (tab === 'overview') loadOverviewData();
+    else if (tab === 'tenants') loadTenantsData();
+    else if (tab === 'cohorts') loadCohortsData();
+    else if (tab === 'churn') loadChurnData();
+    else if (tab === 'pipeline') loadPipelineData();
+    else if (tab === 'benchmark') loadBenchmarkData();
+  }
+
+  // Fetch and render Overview data
+  async function loadOverviewData() {
+    showLoading(true);
+    try {
+      const response = await fetch(`/api/overview?period_filter=${activePeriod}`);
+      if (!response.ok) {
+        throw new Error("Missing ETL outputs. Please run the pipeline first.");
+      }
+      const data = await response.json();
+      
+      // Render KPIs
+      const kpisHtml = data.kpis.map(k => `
+        <div class="kpi">
+          <div class="kpi-label">${k.label}</div>
+          <div class="kpi-val">${k.val}</div>
+          <div class="kpi-trend ${k.trend_class}">${k.trend_text}</div>
+        </div>
+      `).join('');
+      document.getElementById('overview-kpis').innerHTML = kpisHtml;
+      
+      // Render Monthly MRR chart
+      const chartHtml = data.mrr_trend.map(b => `
+        <div class="bar-col">
+          <div class="bar-b" style="height:${b.pct_height}px; background:${b.color}" data-tooltip="${b.mrr_formatted}" onclick="alert('Month: ${b.period}\\nMRR: ${b.mrr_formatted}')"></div>
+          <div class="bar-lbl">${b.month_name}</div>
+        </div>
+      `).join('');
+      document.getElementById('mrr-trend-chart').innerHTML = chartHtml;
+      
+      // Render Plan breakdown list
+      const planHtml = data.plan_revenue.map(p => `
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:4px">
+            <span style="color:var(--color-text-secondary)">${p.plan}</span>
+            <span style="font-family:var(--font-mono); color:var(--color-text-primary); font-weight:500;">${p.mrr}</span>
+          </div>
+          <div style="height:5px; border-radius:3px; background:var(--color-background-secondary)">
+            <div style="height:5px; border-radius:3px; width:${p.pct}%; background:${p.color}"></div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('plan-revenue-list').innerHTML = planHtml;
+      
+      // Render Top Tenants LTV table
+      const tenantsHtml = data.top_tenants.map(t => `
+        <div class="t-row">
+          <div class="col-name">${t.company_name}</div>
+          <div class="col-plan"><span class="plan-badge pb-${t.plan.toLowerCase()}">${t.plan}</span></div>
+          <div class="col-val">${t.ltv}</div>
+          <div class="col-val">${t.mrr}</div>
+          <div class="col-trend ${t.mom_class}">${t.mom_growth}</div>
+        </div>
+      `).join('');
+      document.getElementById('overview-top-tenants').innerHTML = tenantsHtml || `<div class="empty-note">No tenant data processed.</div>`;
+      
+    } catch (err) {
+      renderEmptyState('overview', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Fetch and render Tenants Directory data
+  async function loadTenantsData() {
+    showLoading(true);
+    try {
+      const response = await fetch(`/api/tenants?search=${tenantSearchText}&plan=${tenantPlanFilter}&page=${tenantCurrentPage}`);
+      const data = await response.json();
+      
+      // Update KPIs
+      document.getElementById('tenant-kpi-total').textContent = data.total_filtered;
+      document.getElementById('tenant-kpi-active').textContent = data.active_count;
+      const retentionPct = data.total_count > 0 ? ((data.active_count / data.total_count) * 100).toFixed(1) : 0;
+      document.getElementById('tenant-kpi-retention').textContent = `${retentionPct}% retention`;
+      document.getElementById('tenant-kpi-ltv').textContent = data.avg_ltv;
+      document.getElementById('tenant-kpi-arpu').textContent = data.arpu;
+      
+      document.getElementById('tenant-filtered-count').textContent = `Found ${data.total_filtered} accounts`;
+      
+      // Table rows
+      const rowsHtml = data.tenants.map(t => `
+        <div class="t-row">
+          <div class="col-name">${t.company_name} <span style="font-size:9px; color:var(--color-text-tertiary)">(${t.tenant_id})</span></div>
+          <div class="col-plan"><span class="plan-badge pb-${t.plan.toLowerCase()}">${t.plan}</span></div>
+          <div class="col-val">${t.mrr}</div>
+          <div class="col-val" style="text-align:right; font-family:var(--font-mono)">${t.active_months}</div>
+          <div class="col-val">${t.ltv}</div>
+          <div class="col-trend">
+            <span style="font-size:9.5px; padding:2px 7px; border-radius:8px; font-weight:600; background:${t.status === 'Active' ? '#dcfce7' : '#fee2e2'}; color:${t.status === 'Active' ? '#15803d' : '#b91c1c'}">
+              ${t.status}
+            </span>
+          </div>
+        </div>
+      `).join('');
+      
+      document.getElementById('tenants-table-body').innerHTML = rowsHtml || `<div class="empty-note">No matching SaaS tenants found.</div>`;
+      
+      // Pagination state
+      const totalPages = Math.ceil(data.total_filtered / data.limit) || 1;
+      document.getElementById('tenant-page-indicator').textContent = `Page ${tenantCurrentPage} of ${totalPages}`;
+      document.getElementById('btn-prev-page').disabled = tenantCurrentPage <= 1;
+      document.getElementById('btn-next-page').disabled = tenantCurrentPage >= totalPages;
+      
+    } catch (err) {
+      renderEmptyState('tenants', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function filterTenants() {
+    tenantSearchText = document.getElementById('tenant-search').value;
+    tenantPlanFilter = document.getElementById('tenant-plan-filter').value;
+    tenantCurrentPage = 1;
+    loadTenantsData();
+  }
+
+  function changeTenantPage(dir) {
+    tenantCurrentPage += dir;
+    loadTenantsData();
+  }
+
+  // Fetch and render Cohort retention Heatmap data
+  async function loadCohortsData() {
+    showLoading(true);
+    try {
+      const response = await fetch('/api/cohorts');
+      if (!response.ok) throw new Error("Parquet files missing. Complete job pipeline first.");
+      const data = await response.json();
+      
+      if (!data.cohorts || data.cohorts.length === 0) {
+        throw new Error("No cohorts computed yet. Run pipeline job 3.");
+      }
+      
+      let gridHtml = `
+        <div class="c-cell c-hd">Cohort</div>
+        <div class="c-cell c-hd">M0</div><div class="c-cell c-hd">M1</div><div class="c-cell c-hd">M2</div><div class="c-cell c-hd">M3</div>
+        <div class="c-cell c-hd">M4</div><div class="c-cell c-hd">M5</div><div class="c-cell c-hd">M6</div><div class="c-cell c-hd">M7</div>
+        <div class="c-cell c-hd">M8</div><div class="c-cell c-hd">M9</div><div class="c-cell c-hd">M10</div><div class="c-cell c-hd">M11</div>
+      `;
+      
+      data.cohorts.forEach(c => {
+        // Render Cohort header cell (e.g. Jan '23 (26))
+        const monthName = pdMonthFormat(c.cohort);
+        gridHtml += `<div class="c-cell c-rn" title="Size: ${c.cohort_size}">${monthName} <span style="font-size:8px; color:var(--color-text-tertiary)">(${c.cohort_size})</span></div>`;
+        
+        c.retention.forEach(val => {
+          if (val === null) {
+            gridHtml += `<div class="c-cell" style="background:var(--color-background-secondary); color:var(--color-text-tertiary)">-</div>`;
+          } else {
+            // Compute heat map scale using HSL (hue 210 = blue, lightness from 30% to 95%)
+            // 100% -> lightness 35%. 0% -> lightness 95%
+            const pct = parseFloat(val);
+            const lightness = 95 - (pct * 0.6);
+            // High percentages get white text, lower ones get dark text
+            const textColor = pct > 60 ? '#ffffff' : 'var(--color-text-primary)';
+            gridHtml += `<div class="c-cell" style="background:hsl(210, 80%, ${lightness}%); color:${textColor}" title="Retention: ${val}%">${val}</div>`;
+          }
+        });
+      });
+      
+      document.getElementById('cohorts-matrix-body').innerHTML = gridHtml;
+      
+      // Update dynamic insights text
+      const dropMax = findMaxDrop(data.cohorts);
+      document.getElementById('cohorts-insight-text').innerHTML = `
+        The largest observed retention drop occurs between <strong style="color:var(--color-text-primary)">Month 0 and Month 1</strong> (average drop of ${dropMax.avgDrop.toFixed(1)}%).
+        In a real product, this would be a signal to inspect onboarding, activation, pricing fit, and early billing failures before making product conclusions.
+        <strong>Recommended next analysis:</strong> compare this pattern by plan, country, and acquisition cohort.
+      `;
+      
+    } catch (err) {
+      renderEmptyState('cohorts', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function pdMonthFormat(periodStr) {
+    const [year, month] = periodStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return date.toLocaleString('en-US', { month: 'short' }) + "'" + year.substring(2);
+  }
+
+  function findMaxDrop(cohorts) {
+    let drops = [];
+    cohorts.forEach(c => {
+      if (c.retention[0] !== null && c.retention[1] !== null) {
+        drops.push(c.retention[0] - c.retention[1]);
+      }
+    });
+    const avg = drops.reduce((s, x) => s + x, 0) / drops.length || 19.2;
+    return { avgDrop: avg };
+  }
+
+  // Fetch and render Churn screen data
+  async function loadChurnData() {
+    showLoading(true);
+    try {
+      const response = await fetch('/api/churn');
+      if (!response.ok) throw new Error("Parquet files missing. Perform ETL orchestrator run first.");
+      const data = await response.json();
+      
+      // Render KPIs
+      const kpiHtml = data.kpis.map(k => `
+        <div class="kpi">
+          <div class="kpi-label">${k.label}</div>
+          <div class="kpi-val">${k.val}</div>
+          <div class="kpi-trend neutral">${k.sub}</div>
+        </div>
+      `).join('');
+      document.getElementById('churn-kpis').innerHTML = kpiHtml;
+      
+      // Churn plan bars
+      const barsHtml = data.plan_churn.map(p => `
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:4px">
+            <span style="color:var(--color-text-secondary)">${p.plan}</span>
+            <span style="color:${p.color}; font-weight:600;">${p.rate}</span>
+          </div>
+          <div style="height:5px; border-radius:3px; background:var(--color-background-secondary)">
+            <div style="height:5px; border-radius:3px; width:${p.bar_width}%; background:${p.color}"></div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('plan-churn-bars').innerHTML = barsHtml;
+      
+      // Churn risk list
+      const riskHtml = data.churn_risk.map(r => `
+        <div class="t-row" style="padding:10px 0;">
+          <div class="col-name" style="font-size:12px;">${r.company_name}</div>
+          <div style="font-size:10.5px; color:${r.color}; font-weight:600;"><i class="ti ti-alert-triangle"></i> ${r.reason}</div>
+        </div>
+      `).join('');
+      document.getElementById('churn-risk-list').innerHTML = riskHtml;
+      
+    } catch (err) {
+      renderEmptyState('churn', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Fetch and render Pipeline Job screen data
+  async function loadPipelineData() {
+    showLoading(true);
+    try {
+      const response = await fetch('/api/pipeline');
+      const data = await response.json();
+      
+      const listHtml = data.map(j => `
+        <div class="p-item">
+          <div class="p-icon" style="background:var(--color-background-secondary)"><i class="ti ti-activity" style="color:${j.bar_color}"></i></div>
+          <div class="p-info">
+            <div class="p-name">${j.name}</div>
+            <div class="p-meta">${j.meta}</div>
+            <div class="p-bar-wrap"><div class="p-bar" style="width:${j.bar_width}%; background:${j.bar_color}"></div></div>
+          </div>
+          <span class="p-status ${j.status}">${j.status_text}</span>
+        </div>
+      `).join('');
+      
+      document.getElementById('pipeline-jobs-list').innerHTML = listHtml;
+      
+      // Check pipeline status immediately on load
+      checkPipelineStatus();
+      
+    } catch (err) {
+      renderEmptyState('pipeline', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Trigger ETL Background task execution
+  async function triggerPipelineRun() {
+    const select = document.getElementById('pipeline-run-records');
+    const records = select.value;
+    
+    const btn = document.getElementById('run-pipeline-btn');
+    btn.disabled = true;
+    
+    try {
+      const res = await fetch(`/api/pipeline/run?records=${records}`, { method: 'POST' });
+      if (!res.ok) throw new Error("Could not start background job.");
+      
+      appendConsoleLog("\n>>> Background ETL Pipeline Job Triggered successfully.\n");
+      
+      // Begin background poll interval
+      if (pipelinePollInterval) clearInterval(pipelinePollInterval);
+      pipelinePollInterval = setInterval(pollPipelineExecution, 1000);
+      
+    } catch (err) {
+      btn.disabled = false;
+      alert("Error triggering job: " + err.message);
+    }
+  }
+
+  // Poll runner state
+  async function pollPipelineExecution() {
+    try {
+      const res = await fetch('/api/pipeline/status');
+      const data = await res.json();
+      
+      // Update UI components
+      document.getElementById('run-status-text').textContent = data.status;
+      document.getElementById('run-status-text').className = 
+        data.status === 'SUCCESS' ? 'up' : (data.status === 'FAILED' ? 'dn' : 'st-run');
+        
+      document.getElementById('run-step-text').textContent = data.step;
+      document.getElementById('run-time-text').textContent = `${data.elapsed.toFixed(1)}s`;
+      document.getElementById('run-progress-bar').style.width = `${data.progress}%`;
+      
+      // Fetch dynamic output console logs
+      const logRes = await fetch('/api/pipeline/logs');
+      const logData = await logRes.json();
+      const consoleNode = document.getElementById('run-logs-console');
+      consoleNode.textContent = logData.logs;
+      consoleNode.scrollTop = consoleNode.scrollHeight; // Scroll to bottom
+      
+      if (data.status !== 'RUNNING') {
+        // Complete execution state
+        clearInterval(pipelinePollInterval);
+        pipelinePollInterval = null;
+        document.getElementById('run-pipeline-btn').disabled = false;
+        
+        // Reload layouts with new dynamic data
+        if (data.status === 'SUCCESS') {
+          setTimeout(() => {
+            alert("Pipeline completed successfully. Live data reloaded.");
+            loadTabData(activeTab);
+          }, 500);
+        }
+      }
+    } catch (err) {
+      console.error("Error polling state: ", err);
+    }
+  }
+
+  function appendConsoleLog(txt) {
+    const consoleNode = document.getElementById('run-logs-console');
+    consoleNode.textContent += txt;
+    consoleNode.scrollTop = consoleNode.scrollHeight;
+  }
+
+  function clearLogs() {
+    document.getElementById('run-logs-console').textContent = "Console cleared. Run pipeline to output logs...";
+  }
+
+  async function checkPipelineStatus() {
+    try {
+      const res = await fetch('/api/pipeline/status');
+      const data = await res.json();
+      if (data.status === 'RUNNING') {
+        document.getElementById('run-pipeline-btn').disabled = true;
+        if (pipelinePollInterval) clearInterval(pipelinePollInterval);
+        pipelinePollInterval = setInterval(pollPipelineExecution, 1000);
+      }
+    } catch (err) {}
+  }
+
+  // Fetch and render Performance Benchmark comparisons
+  async function loadBenchmarkData() {
+    showLoading(true);
+    try {
+      const response = await fetch('/api/benchmark');
+      const data = await response.json();
+      
+      const rowsHtml = data.records.map(r => `
+        <tr>
+          <td>${r.records}</td>
+          <td>${r.pandas}</td>
+          <td>${r.spark}</td>
+          <td>
+            <div class="brow">
+              <div class="bseg" style="width:${r.p_width}px; background:#3B8BD4" title="Pandas: ${r.pandas}"></div>
+              <div class="bseg" style="width:${r.s_width}px; background:#EF9F27" title="PySpark: ${r.spark}"></div>
+            </div>
+          </td>
+          <td><span class="w-badge ${r.winner_class}">${r.winner}</span></td>
+        </tr>
+      `).join('');
+      
+      document.getElementById('benchmark-table-body').innerHTML = rowsHtml;
+      
+    } catch (err) {
+      renderEmptyState('benchmark', err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Error/Empty State Renderer
+  function renderEmptyState(tab, errorMsg) {
+    if (tab === 'overview') {
+      document.getElementById('overview-kpis').innerHTML = '';
+      document.getElementById('mrr-trend-chart').innerHTML = `
+        <div class="empty-note" style="width:100%">
+          <i class="ti ti-database-x" style="font-size:24px; color:var(--color-text-tertiary)"></i>
+          <p style="margin-top:6px">${errorMsg}</p>
+        </div>
+      `;
+      document.getElementById('plan-revenue-list').innerHTML = `<li>No data</li>`;
+      document.getElementById('overview-top-tenants').innerHTML = `<div class="empty-note">${errorMsg}</div>`;
+    } else if (tab === 'tenants') {
+      document.getElementById('tenants-table-body').innerHTML = `<div class="empty-note">${errorMsg}</div>`;
+    } else if (tab === 'cohorts') {
+      document.getElementById('cohorts-matrix-body').innerHTML = `<div class="empty-note">${errorMsg}</div>`;
+      document.getElementById('cohorts-insight-text').textContent = "No retention computations available.";
+    } else if (tab === 'churn') {
+      document.getElementById('churn-kpis').innerHTML = '';
+      document.getElementById('plan-churn-bars').innerHTML = '';
+      document.getElementById('churn-risk-list').innerHTML = `<div class="empty-note">${errorMsg}</div>`;
+    }
+  }
+
+  // Theme Controller
+  function toggleTheme() {
+    const body = document.body;
+    const currentTheme = body.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    body.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    const icon = document.getElementById('theme-icon');
+    if (newTheme === 'dark') {
+      icon.className = 'ti ti-moon';
+      icon.style.color = 'var(--color-text-info)';
+    } else {
+      icon.className = 'ti ti-sun';
+      icon.style.color = 'var(--color-text-tertiary)';
+    }
+  }
+
+  // Setup saved theme on load
+  function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    
+    const icon = document.getElementById('theme-icon');
+    if (savedTheme === 'dark') {
+      icon.className = 'ti ti-moon';
+      icon.style.color = 'var(--color-text-info)';
+    } else {
+      icon.className = 'ti ti-sun';
+      icon.style.color = 'var(--color-text-tertiary)';
+    }
+  }
+
+  // App initialization
+  window.onload = function() {
+    initTheme();
+    loadOverviewData();
+  }
+</script>
+
+</body>
+</html>
