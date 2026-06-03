@@ -20,6 +20,7 @@ except ImportError:
 
 from utils.spark_session import get_spark
 from utils.filesystem import recreate_dir
+from utils.paths import data_path
 
 
 def compute_mrr(spark):
@@ -31,8 +32,8 @@ def compute_mrr(spark):
       - cumulative MRR (running total)
       - 3-month rolling average MRR
     """
-    events = spark.read.parquet("data/processed/billing_events")
-    tenants = spark.read.parquet("data/processed/tenants")
+    events = spark.read.parquet(data_path("processed", "billing_events"))
+    tenants = spark.read.parquet(data_path("processed", "tenants"))
 
     # Monthly revenue per tenant
     monthly_revenue = (
@@ -113,8 +114,8 @@ def run_pandas():
     import pandas as pd
     import numpy as np
 
-    events_path = "data/processed/billing_events"
-    tenants_path = "data/processed/tenants"
+    events_path = data_path("processed", "billing_events")
+    tenants_path = data_path("processed", "tenants")
 
     if not os.path.exists(events_path) or not os.path.exists(tenants_path):
         print("  [ERROR] Processed data missing from Job 1. Please run etl_ingest.py first.")
@@ -212,12 +213,16 @@ def run_pandas():
 
     # Write output parquets
     # Clean output directories if they exist
-    for path in ["data/processed/mrr_by_tenant_month", "data/processed/global_mrr_monthly", "data/processed/tenant_ltv"]:
+    for path in [
+        data_path("processed", "mrr_by_tenant_month"),
+        data_path("processed", "global_mrr_monthly"),
+        data_path("processed", "tenant_ltv"),
+    ]:
         recreate_dir(path)
 
-    monthly_rev.to_parquet(os.path.join("data/processed/mrr_by_tenant_month", "part.parquet"), index=False)
-    global_mrr.to_parquet(os.path.join("data/processed/global_mrr_monthly", "part.parquet"), index=False)
-    ltv.to_parquet(os.path.join("data/processed/tenant_ltv", "part.parquet"), index=False)
+    monthly_rev.to_parquet(os.path.join(data_path("processed", "mrr_by_tenant_month"), "part.parquet"), index=False)
+    global_mrr.to_parquet(os.path.join(data_path("processed", "global_mrr_monthly"), "part.parquet"), index=False)
+    ltv.to_parquet(os.path.join(data_path("processed", "tenant_ltv"), "part.parquet"), index=False)
 
     print("\n  [OK] MRR data written   -> data/processed/mrr_by_tenant_month/")
     print("  [OK] Global MRR written -> data/processed/global_mrr_monthly/")
@@ -257,9 +262,9 @@ def run():
     ltv_df.orderBy(F.desc("estimated_ltv")).show(10, truncate=False)
 
     # Write analytical datasets.
-    mrr_df.write.mode("overwrite").parquet("data/processed/mrr_by_tenant_month")
-    global_mrr.write.mode("overwrite").parquet("data/processed/global_mrr_monthly")
-    ltv_df.write.mode("overwrite").parquet("data/processed/tenant_ltv")
+    mrr_df.write.mode("overwrite").parquet(data_path("processed", "mrr_by_tenant_month"))
+    global_mrr.write.mode("overwrite").parquet(data_path("processed", "global_mrr_monthly"))
+    ltv_df.write.mode("overwrite").parquet(data_path("processed", "tenant_ltv"))
 
     print("\n  [OK] MRR data written   -> data/processed/mrr_by_tenant_month/")
     print("  [OK] Global MRR written -> data/processed/global_mrr_monthly/")

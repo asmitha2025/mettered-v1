@@ -17,6 +17,10 @@ import sys
 from datetime import datetime, timedelta
 from faker import Faker
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.paths import data_path
+
 fake = Faker("en_IN")
 
 
@@ -176,8 +180,8 @@ def main(records=200000):
     tenants = generate_tenants(500)
     events = generate_events(tenants, records)
 
-    save_csv(tenants, "data/raw", "tenants.csv")
-    save_csv(events,  "data/raw", "billing_events.csv")
+    save_csv(tenants, data_path("raw"), "tenants.csv")
+    save_csv(events,  data_path("raw"), "billing_events.csv")
     print(f"\n[OK] Done. {len(events):,} events, {len(tenants)} tenants generated.\n")
 
 

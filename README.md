@@ -3,24 +3,26 @@
 Production-style data engineering project for SaaS billing analytics.
 
 This project simulates how a subscription platform turns raw billing events into
-business metrics such as MRR, ARR, LTV, churn, and cohort retention.
+business metrics such as MRR, ARR, LTV, churn, cohort retention, and revenue
+projection scenarios.
 
-[![CI](https://github.com/asmitham/subscription-intelligence-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/asmitham/subscription-intelligence-pipeline/actions)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://python.org)
 [![PySpark 3.5](https://img.shields.io/badge/PySpark-3.5-orange.svg)](https://spark.apache.org)
 [![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://postgresql.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-dashboard-009688.svg)](https://fastapi.tiangolo.com)
 
-## Why This Project Exists
+## Problem
 
-Subscription businesses need accurate answers to questions like:
+Subscription businesses need reliable answers to questions like:
 
 - How much recurring revenue did we generate this month?
-- Which customers are growing or shrinking?
+- Which customers are growing, shrinking, or at risk?
 - Which plans have the highest churn?
 - Are newer customer cohorts retaining better than older cohorts?
+- What happens if churn, ARPU, growth, or customer count changes?
 - How should analytics pipelines be designed for multi-tenant SaaS data?
 
-This repository answers those questions with an end-to-end pipeline:
+This repository answers those questions with an end-to-end analytics pipeline:
 
 ```text
 Raw CSV events
@@ -28,29 +30,25 @@ Raw CSV events
   -> partitioned Parquet
   -> MRR / ARR / LTV transforms
   -> churn and cohort retention transforms
-  -> dashboard API and PostgreSQL analytics schema
+  -> FastAPI dashboard and PostgreSQL analytics schema
+  -> interactive revenue simulator
 ```
 
-## What It Does
+## Features
 
-- Generates up to 200,000 synthetic SaaS billing events across 500 tenants.
-- Ingests raw CSV billing data, validates required fields, and writes clean Parquet.
+- Generates deterministic synthetic SaaS billing data across 500 tenants.
+- Ingests raw billing CSV files, validates required fields, and writes clean
+  partitioned Parquet outputs.
 - Computes MRR, ARR, MRR growth, rolling MRR, ARPU, and tenant LTV.
 - Computes churn by plan and monthly cohort retention.
-- Includes a PostgreSQL schema with indexes, materialized view design, and row-level security.
+- Serves results through a FastAPI dashboard API and responsive web dashboard.
+- Includes an interactive revenue what-if simulator for growth, churn, ARPU,
+  tenant count, and projection window inputs.
+- Includes a PostgreSQL schema with tenant-aware tables, indexes, materialized
+  view design, and row-level security policies.
 - Includes a Kafka producer for real-time billing event simulation.
-- Serves analytics through a FastAPI dashboard API.
-- Accepts interactive what-if inputs for tenant count, ARPU, growth, churn, and projection window.
-- Includes pytest coverage and GitHub Actions CI.
-- Benchmarks Pandas vs PySpark tradeoffs.
-
-For interview answers, LinkedIn content, video script, demo flow, and the project improvement log, read:
-
-[docs/PROJECT_SHOWCASE_REPORT.md](docs/PROJECT_SHOWCASE_REPORT.md)
-
-For a timed screen-by-screen recording plan, read:
-
-[docs/VIDEO_WALKTHROUGH_SCRIPT.md](docs/VIDEO_WALKTHROUGH_SCRIPT.md)
+- Benchmarks Pandas and PySpark tradeoffs.
+- Includes pytest coverage, lint configuration, Docker support, and CI workflow.
 
 ## Architecture
 
@@ -83,6 +81,7 @@ For a timed screen-by-screen recording plan, read:
                          | Analytics Serving Layer     |
                          | FastAPI dashboard API       |
                          | PostgreSQL schema design    |
+                         | revenue simulator endpoint  |
                          +-----------------------------+
 
  Kafka producer simulates real-time billing events for the streaming layer.
@@ -104,19 +103,20 @@ subscription-intelligence-pipeline/
 |   |   `-- benchmark.py          # Pandas vs PySpark benchmark
 |   |-- utils/
 |   |   |-- filesystem.py         # local output cleanup helpers
-|   |   `-- spark_session.py      # Spark session with Pandas fallback support
+|   |   `-- spark_session.py      # Spark session and Pandas fallback
 |   `-- web/
 |       |-- app.py                # FastAPI dashboard API
 |       `-- templates/index.html  # dashboard UI
 |-- sql/schema.sql                # PostgreSQL schema, indexes, RLS
 |-- tests/
-|   |-- test_generation.py        # synthetic data behavior
-|   |-- test_simulator.py         # what-if API calculations
-|   |-- test_spark_session.py     # Spark/Pandas engine selection
-|   `-- test_transforms.py        # metric and validation logic
+|   |-- test_generation.py
+|   |-- test_simulator.py
+|   |-- test_spark_session.py
+|   |-- test_transforms.py
+|   `-- test_web_churn.py
 |-- docs/
-|   |-- PROJECT_SHOWCASE_REPORT.md
 |   `-- benchmark_results.json
+|-- Dockerfile
 |-- docker-compose.yml
 |-- requirements.txt
 |-- setup.cfg
@@ -127,24 +127,26 @@ subscription-intelligence-pipeline/
 
 ## Quick Start
 
-### Local Run
-
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+```
 
+Run the full pipeline:
+
+```bash
 python run_pipeline.py --records 50000
 python view_outputs.py
 ```
 
-For a smaller smoke test:
+Run a smaller smoke test:
 
 ```bash
 python run_pipeline.py --records 1000 --skip-benchmark
 ```
 
-### Dashboard
+Start the dashboard:
 
 ```bash
 python run_dashboard.py
@@ -153,32 +155,52 @@ python run_dashboard.py
 The launcher starts a FastAPI server on the first available local port from
 `8000` onward.
 
-### Hugging Face Space / Docker
+Optional: run the pipeline with a separate generated-data root when the local
+repo folder is locked by OneDrive, a running dashboard, or CI cleanup rules.
 
-The repository includes a Dockerfile for Hugging Face Spaces. The container
-build generates a 50K-record demo dataset and serves the dashboard on port
-`7860`.
+```powershell
+$env:SUBSCRIPTION_PIPELINE_DATA_DIR="C:\tmp\subscription-intelligence-data"
+python run_pipeline.py --records 1000 --skip-benchmark
+```
+
+## Docker
+
+The Dockerfile builds a self-contained dashboard image. The container generates a
+demo dataset and serves the dashboard on port `7860`.
 
 ```bash
 docker build -t subscription-intelligence-pipeline .
 docker run -p 7860:7860 subscription-intelligence-pipeline
 ```
 
-### Tests
+## API
+
+Key dashboard endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Service health check |
+| `GET /api/overview` | Revenue KPIs and trend data |
+| `GET /api/tenants` | Tenant-level LTV, MRR, and growth data |
+| `GET /api/cohorts` | Cohort retention matrix |
+| `GET /api/churn` | Current churn and risk summary |
+| `GET /api/pipeline` | Pipeline job metadata |
+| `GET /api/benchmark` | Pandas vs PySpark benchmark results |
+| `POST /api/simulator/revenue` | Revenue projection scenario |
+
+Example simulator request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/simulator/revenue ^
+  -H "Content-Type: application/json" ^
+  -d "{\"tenants\":500,\"arpu\":129,\"monthly_growth_pct\":6,\"monthly_churn_pct\":2.5,\"months\":12}"
+```
+
+## Tests
 
 ```bash
 pytest tests/ -v
-```
-
-### Critical Lint Check
-
-```bash
-flake8 src tests --jobs=1 --count --select=E9,F63,F7,F82 --show-source --statistics
-```
-
-### Kafka Dry Run
-
-```bash
+flake8 src tests --jobs=1 --count --statistics
 python src/ingestion/kafka_producer.py --dry-run --rate 2 --duration 5
 ```
 
@@ -186,31 +208,33 @@ python src/ingestion/kafka_producer.py --dry-run --rate 2 --duration 5
 
 | Metric | Meaning | Implementation |
 | --- | --- | --- |
-| MRR | Monthly recurring revenue per tenant | successful `invoice_paid` grouped by tenant and month |
+| MRR | Monthly recurring revenue per tenant | Successful `invoice_paid` events grouped by tenant and month |
 | ARR | Annual recurring revenue | `MRR * 12` |
-| MRR growth | Month-over-month revenue movement | lag window by tenant |
-| Rolling MRR | 3-month moving average | rolling window |
-| ARPU | Average revenue per user | average tenant monthly revenue |
-| LTV | Estimated lifetime value | average monthly MRR times active months |
-| Churn rate | cancelled tenants divided by active tenants | monthly plan-level aggregation |
-| Cohort retention | retained tenants after signup month | cohort month and months-since-start matrix |
+| MRR growth | Month-over-month revenue movement | Lag window by tenant |
+| Rolling MRR | 3-month moving average | Rolling window |
+| ARPU | Average revenue per user | Average tenant monthly revenue |
+| LTV | Estimated lifetime value | Average monthly MRR times active months |
+| Churn rate | Cancelled tenants divided by active tenants | Monthly plan-level aggregation |
+| Cohort retention | Retained tenants after signup month | Cohort month and months-since-start matrix |
+| Revenue projection | Scenario-based future revenue | Compounded growth minus churn by month |
 
 ## Verified Results
 
-These checks were run successfully in the local project environment:
+These checks have passed in the local project environment:
 
 ```text
 pytest: 17 passed
 flake8 full project check: 0 issues
-full pipeline run: passed with 200,000 records
-full generator run: produced exactly 200,000 billing events
+pipeline smoke run: passed
+generator exact-count validation: passed
 kafka dry run: passed
+dashboard browser sanity check: passed
 ```
 
-Local note: I validated that Spark 3.5 can initialize with a local JDK, but
-Windows local Parquet writes require proper Hadoop native binaries. To keep the
-demo reliable, auto mode uses the Pandas fallback on Windows. Spark can still be
-forced in a correctly configured Linux, WSL, Docker, or cluster environment with
+On Windows, local Spark can initialize when Java is available, but reliable
+local Parquet writes require Hadoop native binaries. To keep local runs stable,
+auto mode uses the Pandas fallback on Windows unless Spark is explicitly forced
+in a correctly configured Linux, WSL, Docker, or cluster environment with
 `SUBSCRIPTION_PIPELINE_ENGINE=spark`.
 
 Latest local benchmark results:
@@ -221,59 +245,49 @@ Latest local benchmark results:
 | 100,000 | 0.196 | N/A | Pandas (local Spark unavailable) |
 | 200,000 | 0.586 | N/A | Pandas (local Spark unavailable) |
 
-## Key Design Decisions
+## Design Decisions
 
-### PySpark with Pandas Fallback
+### PySpark With Pandas Fallback
 
-Spark is the target architecture for distributed data processing, partitioned
+Spark is the target architecture for distributed processing, partitioned
 storage, and large-scale transformations. Pandas is kept as a fallback so the
-project can still run on laptops without a fully configured Spark runtime.
-
-That tradeoff is intentional: small local datasets often run faster in Pandas,
-while Spark becomes valuable when data size, distributed execution, and
-fault-tolerant processing matter.
+project remains runnable on laptops without a complete Spark and Hadoop native
+runtime.
 
 ### Partitioned Parquet
 
-Clean billing events are written by `event_year` and `event_month`. This makes
-monthly analytics cheaper because downstream jobs can scan only the relevant
-partitions instead of every historical event.
+Clean billing events are written by `event_year` and `event_month`, which keeps
+monthly analytics efficient by limiting downstream scans to relevant
+partitions.
 
 ### Multi-Tenant PostgreSQL Design
 
 The SQL schema includes tenant-scoped tables, hot-query indexes, a materialized
-view for revenue analytics, and row-level security policies. The goal is to show
-how billing analytics should protect tenant isolation beyond application code.
+view for revenue analytics, and row-level security policies. The design keeps
+tenant isolation visible at the data layer instead of relying only on
+application code.
 
-### Cohort Retention
+### Churn And Cohort Modeling
 
-MRR explains revenue size, but cohort retention explains revenue quality. The
-project tracks tenant activity after signup month so the business can see when
-customers drop off.
+MRR explains revenue size, while churn and cohort retention explain revenue
+quality. The project tracks plan-level churn and tenant activity after signup
+month so a SaaS business can understand where revenue is weakening.
 
-## Production Improvements I Would Add
+### Interactive Revenue Simulator
 
-- Airflow, Dagster, or Prefect for scheduled orchestration.
-- Delta Lake, Apache Iceberg, or Hudi for ACID lakehouse tables.
-- Schema registry with Avro or Protobuf for Kafka contracts.
-- Great Expectations or Soda checks for richer data quality.
-- dbt for SQL model versioning, tests, documentation, and lineage.
-- Cloud object storage and Spark on Kubernetes, EMR, or Dataproc.
-- Secrets management instead of local environment variables.
-- Authentication, authorization, and tenant-scoped access controls for derived dashboard views.
+The simulator exposes business levers directly in the dashboard. It lets users
+change tenant count, ARPU, monthly growth, monthly churn, and the projection
+window, then sends the scenario to the FastAPI backend for month-by-month
+projection calculations.
 
-## Interview Pitch
+## Production Improvements
 
-I built an end-to-end SaaS billing analytics pipeline that turns raw
-subscription events into MRR, ARR, LTV, churn, and cohort-retention insights.
-The project covers ingestion, validation, partitioned storage, analytical
-transforms, multi-tenant database design, streaming simulation, dashboard
-serving, tests, and CI.
-
-## Author
-
-**Asmitha M**
-Data Engineer
-Chennai, Tamil Nadu
-[linkedin.com/in/asmitham](https://linkedin.com/in/asmitham) |
-[github.com/asmitham](https://github.com/asmitham)
+- Add Airflow, Dagster, or Prefect for scheduled orchestration.
+- Add Delta Lake, Apache Iceberg, or Hudi for ACID lakehouse tables.
+- Add schema registry contracts with Avro or Protobuf for Kafka events.
+- Add Great Expectations or Soda checks for richer data quality validation.
+- Add dbt for SQL model versioning, tests, documentation, and lineage.
+- Move batch storage to cloud object storage and run Spark on Kubernetes, EMR,
+  or Dataproc.
+- Add managed secrets, service authentication, and tenant-scoped dashboard
+  authorization.

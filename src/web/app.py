@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field
 import pandas as pd
 import numpy as np
 
+from src.utils.paths import data_dir, data_path
+
 app = FastAPI(title="Subscription Intelligence Dashboard API")
 
 # Enable CORS
@@ -25,11 +27,11 @@ app.add_middleware(
 
 # Project paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+DATA_DIR = data_dir()
 PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
-LOG_FILE_PATH = os.path.join(BASE_DIR, "data", "pipeline_run.log")
+LOG_FILE_PATH = data_path("pipeline_run.log")
 
 # Pipeline status variables
 pipeline_status = {
@@ -52,8 +54,16 @@ class RevenueSimulationRequest(BaseModel):
     monthly_churn_pct: float = Field(8.0, ge=0, le=100)
     months: int = Field(12, ge=1, le=36)
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "subscription-intelligence-dashboard"}
+
 def load_parquet(path: str) -> Optional[pd.DataFrame]:
-    full_path = os.path.join(BASE_DIR, path)
+    normalized_path = path.replace("\\", "/")
+    path_parts = normalized_path.split("/")
+    if path_parts and path_parts[0] == "data":
+        path_parts = path_parts[1:]
+    full_path = data_path(*path_parts)
     if not os.path.exists(full_path):
         return None
     try:

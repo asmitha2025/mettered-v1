@@ -23,6 +23,7 @@ except ImportError:
 
 from utils.spark_session import get_spark
 from utils.filesystem import recreate_dir
+from utils.paths import data_path
 
 
 def compute_churn_rate(spark):
@@ -30,7 +31,7 @@ def compute_churn_rate(spark):
     Monthly churn rate = cancelled tenants / active tenants at start of month.
     Computed per plan tier.
     """
-    events = spark.read.parquet("data/processed/billing_events")
+    events = spark.read.parquet(data_path("processed", "billing_events"))
 
     # Active tenants per month (had at least one invoice_paid)
     active = (
@@ -89,7 +90,7 @@ def compute_cohort_retention(spark):
     - Tracks what % of that cohort is still active N months later
     - Output: pivot table cohort x months_since_start
     """
-    events = spark.read.parquet("data/processed/billing_events")
+    events = spark.read.parquet(data_path("processed", "billing_events"))
 
     # First event date per tenant = cohort assignment
     first_event = (
@@ -162,7 +163,7 @@ def run_pandas():
     print("\n[JOB 3] Churn Rate + Cohort Retention (Pandas Fallback Engine)\n")
     import pandas as pd
 
-    events_path = "data/processed/billing_events"
+    events_path = data_path("processed", "billing_events")
     if not os.path.exists(events_path):
         print("  [ERROR] Processed billing events missing from Job 1. Please run etl_ingest.py first.")
         return
@@ -299,12 +300,16 @@ def run_pandas():
 
     # Write output parquets
     # Clean output directories if they exist
-    for path in ["data/processed/churn_by_plan_month", "data/processed/cohort_retention", "data/processed/cohort_sizes"]:
+    for path in [
+        data_path("processed", "churn_by_plan_month"),
+        data_path("processed", "cohort_retention"),
+        data_path("processed", "cohort_sizes"),
+    ]:
         recreate_dir(path)
 
-    churn_rate.to_parquet(os.path.join("data/processed/churn_by_plan_month", "part.parquet"), index=False)
-    retention.to_parquet(os.path.join("data/processed/cohort_retention", "part.parquet"), index=False)
-    cohort_sizes.to_parquet(os.path.join("data/processed/cohort_sizes", "part.parquet"), index=False)
+    churn_rate.to_parquet(os.path.join(data_path("processed", "churn_by_plan_month"), "part.parquet"), index=False)
+    retention.to_parquet(os.path.join(data_path("processed", "cohort_retention"), "part.parquet"), index=False)
+    cohort_sizes.to_parquet(os.path.join(data_path("processed", "cohort_sizes"), "part.parquet"), index=False)
 
     print("\n  [OK] Churn data written     -> data/processed/churn_by_plan_month/")
     print("  [OK] Retention written      -> data/processed/cohort_retention/")
@@ -330,9 +335,9 @@ def run():
     retention_df.orderBy("cohort", "months_since_start").show(20, truncate=False)
 
     # Write analytical datasets.
-    churn_df.write.mode("overwrite").parquet("data/processed/churn_by_plan_month")
-    retention_df.write.mode("overwrite").parquet("data/processed/cohort_retention")
-    cohort_sizes_df.write.mode("overwrite").parquet("data/processed/cohort_sizes")
+    churn_df.write.mode("overwrite").parquet(data_path("processed", "churn_by_plan_month"))
+    retention_df.write.mode("overwrite").parquet(data_path("processed", "cohort_retention"))
+    cohort_sizes_df.write.mode("overwrite").parquet(data_path("processed", "cohort_sizes"))
 
     print("\n  [OK] Churn data written     -> data/processed/churn_by_plan_month/")
     print("  [OK] Retention written      -> data/processed/cohort_retention/")

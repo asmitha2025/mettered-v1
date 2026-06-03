@@ -32,6 +32,7 @@ except ImportError:
     SparkSession = None
 
 from utils.spark_session import get_spark
+from utils.paths import data_path
 
 
 def pandas_mrr(csv_path: str) -> float:
@@ -79,7 +80,7 @@ def run() -> None:
 
     for n in [50_000, 100_000, 200_000]:
         # Sample from full data
-        csv_path = "data/raw/billing_events.csv"
+        csv_path = data_path("raw", "billing_events.csv")
         if not os.path.exists(csv_path):
             print(f"  [ERROR] Raw billing events CSV not found at {csv_path}. Please run data generator first.")
             return

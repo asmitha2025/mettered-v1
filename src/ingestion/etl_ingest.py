@@ -35,6 +35,7 @@ except ImportError:
 
 from utils.spark_session import get_spark
 from utils.filesystem import recreate_dir
+from utils.paths import data_path
 
 
 if StructType is not None:
@@ -95,8 +96,8 @@ def run_pandas() -> None:
     import pandas as pd
     import numpy as np
 
-    events_path = "data/raw/billing_events.csv"
-    tenants_path = "data/raw/tenants.csv"
+    events_path = data_path("raw", "billing_events.csv")
+    tenants_path = data_path("raw", "tenants.csv")
 
     if not os.path.exists(events_path) or not os.path.exists(tenants_path):
         logger.error("Raw source CSV files missing. Execute generate_data.py first.")
@@ -136,8 +137,8 @@ def run_pandas() -> None:
     rejected_count = len(rejected)
     if rejected_count > 0:
         logger.warning(f"Found {rejected_count:,} invalid rows violating schemas. Piping to DLQ.")
-        os.makedirs("data/processed/rejected", exist_ok=True)
-        rejected.to_parquet("data/processed/rejected/rejected.parquet", index=False)
+        os.makedirs(data_path("processed", "rejected"), exist_ok=True)
+        rejected.to_parquet(data_path("processed", "rejected", "rejected.parquet"), index=False)
 
     # Enrich
     clean["event_year"] = clean["event_date"].dt.year
@@ -147,11 +148,11 @@ def run_pandas() -> None:
     clean["is_churn_event"] = clean["event_type"].isin(["subscription_cancelled"]).astype(bool)
 
     # Write Partitioned Parquet
-    for path in ["data/processed/billing_events", "data/processed/tenants"]:
+    for path in [data_path("processed", "billing_events"), data_path("processed", "tenants")]:
         recreate_dir(path)
 
-    clean.to_parquet("data/processed/billing_events", partition_cols=["event_year", "event_month"], index=False)
-    tenants_raw.to_parquet(os.path.join("data/processed/tenants", "part.parquet"), index=False)
+    clean.to_parquet(data_path("processed", "billing_events"), partition_cols=["event_year", "event_month"], index=False)
+    tenants_raw.to_parquet(os.path.join(data_path("processed", "tenants"), "part.parquet"), index=False)
 
     logger.info("Partitioned clean events Parquet datasets successfully generated.")
     logger.info("Validated tenants list Parquet successfully generated.")
@@ -172,14 +173,14 @@ def run() -> None:
         .option("header", "true")
         .option("timestampFormat", "yyyy-MM-dd HH:mm:ss")
         .schema(EVENTS_SCHEMA)
-        .csv("data/raw/billing_events.csv")
+        .csv(data_path("raw", "billing_events.csv"))
     )
 
     tenants_raw = (
         spark.read
         .option("header", "true")
         .schema(TENANTS_SCHEMA)
-        .csv("data/raw/tenants.csv")
+        .csv(data_path("raw", "tenants.csv"))
     )
 
     logger.info("Raw source datasets successfully read into Spark environment.")
@@ -189,7 +190,7 @@ def run() -> None:
     rejected_count = rejected.count()
     if rejected_count > 0:
         logger.warning(f"Found {rejected_count:,} invalid rows violating schemas. Piping to DLQ.")
-        rejected.write.mode("overwrite").parquet("data/processed/rejected")
+        rejected.write.mode("overwrite").parquet(data_path("processed", "rejected"))
 
     # Enrich events with partitions and metric flags.
     enriched = (
@@ -211,14 +212,14 @@ def run() -> None:
         .write
         .mode("overwrite")
         .partitionBy("event_year", "event_month")
-        .parquet("data/processed/billing_events")
+        .parquet(data_path("processed", "billing_events"))
     )
 
     (
         tenants_raw
         .write
         .mode("overwrite")
-        .parquet("data/processed/tenants")
+        .parquet(data_path("processed", "tenants"))
     )
 
     logger.info("Partitioned clean events Parquet datasets successfully generated.")

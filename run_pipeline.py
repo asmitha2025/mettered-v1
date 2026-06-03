@@ -22,6 +22,7 @@ import sys
 import time
 
 from src.utils.spark_session import java_available, spark_runtime_allowed
+from src.utils.paths import display_data_path
 
 # Use the current Python interpreter to execute all step sub-processes.
 python_exe = sys.executable
@@ -88,7 +89,7 @@ def main():
 +----------------------------------------------------------+
 |   Subscription Intelligence Pipeline                     |
 |   A PySpark ETL for SaaS Billing Analytics               |
-|   github.com/asmitham/subscription-intelligence-pipeline |
+|   Batch metrics, churn analysis, and dashboard serving    |
 +----------------------------------------------------------+
 {engine_banner.strip()}
     """, flush=True)
@@ -103,7 +104,7 @@ def main():
     print(f"""
 {'=' * 60}
   [OK] All steps complete in {total}s
-  [FOLDER] Output: data/processed/
+  [FOLDER] Output: {display_data_path('processed')}/
       |-- billing_events/     (partitioned Parquet)
       |-- mrr_by_tenant_month/
       |-- global_mrr_monthly/
